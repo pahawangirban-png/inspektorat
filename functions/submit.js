@@ -1,7 +1,7 @@
 const { google } = require('googleapis');
 
 exports.handler = async (event, context) => {
-  // Hanya terima method POST
+  // 1. Cek Metode Pengiriman (Harus POST)
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -9,10 +9,13 @@ exports.handler = async (event, context) => {
   try {
     const data = JSON.parse(event.body);
     
-    // --- SETUP AUTH GOOGLE ---
-    // Kita ambil credential dari Environment Variable Netlify nanti
+    // 2. AMBIL KUNCI DARI RAHASIA NETLIFY (Environment Variables)
+    // Perhatikan: Kita memanggil "process.env", bukan menulis ID manual.
     const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID; 
+    const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
+
+    // 3. Setup Koneksi Google
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: [
@@ -24,21 +27,17 @@ exports.handler = async (event, context) => {
     const drive = google.drive({ version: 'v3', auth });
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // ID DATABASE ANDA (GANTI DISINI ATAU PAKAI ENV)
-    const SPREADSHEET_ID = process.env.SPREADSHEET_ID; 
-    const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
-
-    // --- 1. PROSES UPLOAD FILE KE DRIVE ---
+    // 4. Proses Upload File ke Drive (Jika ada file)
     let fileLinks = [];
     
     if (data.files && data.files.length > 0) {
       for (const file of data.files) {
-        // file.content adalah base64 string
+        // Mengubah text base64 kembali menjadi file fisik di memory server
         const buffer = Buffer.from(file.content.split(',')[1], 'base64');
         
         const fileMetadata = {
           name: file.name,
-          parents: [DRIVE_FOLDER_ID]
+          parents: [DRIVE_FOLDER_ID] // Upload ke folder ID dari Secret
         };
         
         const media = {
@@ -56,13 +55,13 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // --- 2. SIMPAN KE SPREADSHEET ---
-    const linkString = fileLinks.join(',\n');
+    // 5. Simpan Data ke Spreadsheet
+    const linkString = fileLinks.join(',\n'); // Gabung link jadi satu string
     const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'database!A:G', // Pastikan nama sheet Anda 'database'
+      spreadsheetId: SPREADSHEET_ID, // Simpan ke Sheet ID dari Secret
+      range: 'database!A:G',         // Pastikan nama sheet di Google Sheet adalah 'database'
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[
@@ -71,7 +70,7 @@ exports.handler = async (event, context) => {
           data.opd,
           data.jawaban,
           data.penjelasan,
-          linkString, // Link drive
+          linkString, 
           data.alasan
         ]]
       }
@@ -83,7 +82,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error(error);
+    console.error("Error:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message })
