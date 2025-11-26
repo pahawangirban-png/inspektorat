@@ -1,7 +1,9 @@
 {
-  "name": "sistem-inspektorat",
+  "name": "project-apip",
   "version": "1.0.0",
+  "main": "functions/api.js",
   "dependencies": {
-    "googleapis": "^126.0.0"
+    "google-auth-library": "^8.9.0",
+    "google-spreadsheet": "^3.3.0"
   }
 }
