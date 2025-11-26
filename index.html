@@ -1,236 +1,408 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Evaluasi APIP - Lampung Barat</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .hidden { display: none !important; }
-        /* Animasi Loading kecil */
-        .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Sistem Inspektorat</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	<style>
+		html {
+			overscroll-behavior: none;
+			height: 100%;
+		}
+		body {
+			font-family: 'Plus Jakarta Sans', sans-serif;
+			background-color: #F8F9FA;
+			height: 100%;
+			overflow: hidden;
+		}
+		.fade-in {
+			animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+		}
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+				transform: translateY(20px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+		.dropdown-menu {
+			transition: all 0.2s ease-in-out;
+			transform-origin: top;
+			opacity: 0;
+			transform: scaleY(0.95);
+			pointer-events: none;
+			visibility: hidden;
+		}
+		.dropdown-menu.active {
+			opacity: 1;
+			transform: scaleY(1);
+			pointer-events: auto;
+			visibility: visible;
+		}
+		.dropdown-arrow {
+			transition: transform 0.3s ease;
+		}
+		.dropdown-open .dropdown-arrow {
+			transform: rotate(180deg);
+		}
+		#main-container::-webkit-scrollbar {
+			width: 6px;
+		}
+		#main-container::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		#main-container::-webkit-scrollbar-thumb {
+			background-color: #cbd5e1;
+			border-radius: 4px;
+		}
+		#main-container::-webkit-scrollbar-thumb:hover {
+			background-color: #94a3b8;
+		}
+	</style>
 </head>
-<body class="text-gray-800">
-
-    <section id="login-section" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md border border-gray-100">
-            <div class="text-center mb-8">
-                <h1 class="text-2xl font-bold text-gray-800">Sistem Evaluasi</h1>
-                <p class="text-sm text-gray-500">Pemerintah Kabupaten Lampung Barat</p>
-            </div>
-            
-            <form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Kabupaten</label>
-                    <select id="kabupaten" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50">
-                        <option value="Lampung Barat">Lampung Barat</option>
-                    </select>
-                </div>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Perangkat Daerah (OPD)</label>
-                    <select id="opd" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50">
-                        <option value="">-- Pilih OPD --</option>
-                        <option value="Dinas Pendidikan">Dinas Pendidikan</option>
-                        <option value="Dinas Kesehatan">Dinas Kesehatan</option>
-                        <option value="Dinas Sosial">Dinas Sosial</option>
-                        </select>
-                </div>
-
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="Masukkan password">
-                </div>
-
-                <button type="submit" id="btnLogin" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                    Masuk Aplikasi
-                </button>
-            </form>
-        </div>
-    </section>
-
-    <section id="main-content" class="hidden min-h-screen pb-10">
-        <nav class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200">
-            <div class="container mx-auto px-4 h-16 flex justify-between items-center">
-                <div>
-                    <h1 class="font-bold text-lg text-blue-900">E-Evaluasi APIP</h1>
-                    <p id="user-display" class="text-xs text-gray-500">OPD: -</p>
-                </div>
-                <button onclick="logout()" class="text-sm text-red-600 font-semibold hover:bg-red-50 px-3 py-1 rounded">
-                    Keluar
-                </button>
-            </div>
-        </nav>
-
-        <div class="container mx-auto px-4 mt-8 max-w-4xl">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h2 class="font-semibold text-blue-800">Formulir Isian</h2>
-                <p class="text-sm text-blue-600">Silakan lengkapi data berikut sesuai kondisi riil.</p>
-            </div>
-
-            <form id="evaluationForm">
-                <div id="form-container"></div>
-
-                <div class="mt-8 mb-12 text-right">
-                    <button type="button" class="px-8 py-3 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition">
-                        Simpan Semua Jawaban
-                    </button>
-                </div>
-            </form>
-        </div>
-    </section>
-
-    <script>
-        // URL Backend Netlify Function
-        const API_URL = '/.netlify/functions/api';
-
-        // 1. SAAT WEB DIBUKA, CEK LOGIN
-        document.addEventListener('DOMContentLoaded', () => {
-            const session = JSON.parse(localStorage.getItem('user_session'));
-            if (session) {
-                tampilkanHalamanUtama(session);
-            }
-        });
-
-        // 2. FUNGSI LOGIN
-        async function handleLogin(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('btnLogin');
-            const opd = document.getElementById('opd').value;
-            const kab = document.getElementById('kabupaten').value;
-            const pass = document.getElementById('password').value;
-
-            // Validasi Input Kosong
-            if(!opd || !pass) { alert("Mohon lengkapi data login."); return; }
-
-            // Loading State
-            btn.innerHTML = '<div class="spinner"></div> Memproses...';
-            btn.disabled = true;
-
-            try {
-                // Request ke Backend
-                const response = await fetch(`${API_URL}?mode=login&opd=${encodeURIComponent(opd)}&kabupaten=${encodeURIComponent(kab)}&password=${encodeURIComponent(pass)}`);
-                const result = await response.json();
-
-                if (response.ok && result.status === 'ok') {
-                    // Simpan Sesi & Redirect
-                    localStorage.setItem('user_session', JSON.stringify(result.data));
-                    tampilkanHalamanUtama(result.data);
-                } else {
-                    alert(result.message || "Password atau OPD Salah");
-                }
-            } catch (error) {
-                console.error(error);
-                alert("Terjadi kesalahan koneksi ke server.");
-            } finally {
-                // Reset Tombol
-                btn.innerHTML = 'Masuk Aplikasi';
-                btn.disabled = false;
-            }
-        }
-
-        // 3. FUNGSI LOGOUT
-        function logout() {
-            if(confirm("Apakah Anda yakin ingin keluar?")) {
-                localStorage.removeItem('user_session');
-                window.location.reload();
-            }
-        }
-
-        // 4. TRANSISI KE HALAMAN UTAMA
-        function tampilkanHalamanUtama(user) {
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('user-display').innerText = `OPD: ${user.opd}`;
-
-            // Panggil Data Pertanyaan
-            loadQuestions(user);
-        }
-
-        // 5. AMBIL PERTANYAAN DARI BACKEND
-        async function loadQuestions(user) {
-            const container = document.getElementById('form-container');
-            container.innerHTML = '<div class="text-center py-10 animate-pulse text-blue-600">Sedang mengambil data formulir dari Database...</div>';
-
-            try {
-                const response = await fetch(`${API_URL}?mode=get_questions&opd=${encodeURIComponent(user.opd)}&kabupaten=${encodeURIComponent(user.kabupaten)}`);
-                const questions = await response.json();
-
-                renderForm(questions);
-            } catch (error) {
-                container.innerHTML = `<div class="text-center text-red-500 py-10">Gagal memuat pertanyaan: ${error.message}</div>`;
-            }
-        }
-
-        // 6. RENDER FORMULIR (SESUAI UI ANDA)
-        function renderForm(questions) {
-            const container = document.getElementById('form-container');
-            
-            if (!questions || questions.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-500 py-10 bg-gray-50 rounded border border-gray-200">Tidak ada pertanyaan ditemukan untuk OPD ini.</div>';
-                return;
-            }
-
-            let html = '';
-            questions.forEach((item, index) => {
-                const id = item.id_pertanyaan || index; // Fallback jika ID kosong
-                
-                html += `
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6 transition hover:shadow-md">
-                    ${item.judul ? `<div class="mb-3"><span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded uppercase">${item.judul}</span></div>` : ''}
-                    
-                    <label class="block text-gray-800 font-semibold text-lg mb-2">
-                        <span class="text-gray-400 mr-2">${index + 1}.</span>${item.pertanyaan}
-                    </label>
-                    ${item.sub ? `<p class="text-sm text-gray-500 mb-4 ml-6 border-l-2 border-gray-200 pl-3">${item.sub}</p>` : ''}
-
-                    <div class="ml-0 md:ml-6 space-y-4">
-                        ${item.tipe === 'pilihan' ? renderSelect(id, item.opsi) : renderTextarea(id)}
-
-                        ${item.upload === 'ya' ? `
-                        <div class="p-4 bg-blue-50/50 border border-dashed border-blue-200 rounded-lg mt-2">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm font-medium text-blue-800 flex items-center gap-2">📄 Upload Bukti Dukung</span>
-                                <span class="text-xs text-blue-600 bg-white px-2 py-1 rounded border border-blue-100">Max: ${item.limit || 1} file</span>
-                            </div>
-                            <input type="file" name="file_${id}" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
-                        </div>` : ''}
-
-                        ${item.alasan === 'ya' ? `
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Catatan / Alasan</label>
-                            <textarea name="reason_${id}" rows="2" class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" placeholder="Berikan penjelasan tambahan..."></textarea>
-                        </div>` : ''}
-                    </div>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        // Helper Render Dropdown
-        function renderSelect(id, optionsStr) {
-            const opts = optionsStr ? optionsStr.split('\n') : [];
-            return `
-            <div class="relative">
-                <select name="ans_${id}" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none">
-                    <option value="">-- Pilih Jawaban --</option>
-                    ${opts.map(o => `<option value="${o.trim()}">${o.trim()}</option>`).join('')}
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                </div>
-            </div>`;
-        }
-
-        // Helper Render Textarea
-        function renderTextarea(id) {
-            return `<textarea name="ans_${id}" rows="3" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Tulis jawaban Anda di sini..."></textarea>`;
-        }
-    </script>
+<body class="text-slate-800 antialiased flex flex-col h-full bg-[#F8F9FA]">
+	
+	<div id="login-section" class="fixed inset-0 flex items-center justify-center p-4 transition-all duration-500 z-[100] bg-[#F8F9FA]">
+		<div class="w-full max-w-md bg-white rounded-[1.5rem] shadow-2xl shadow-slate-200/50 p-6 md:p-8 border border-white fade-in relative">
+			<div class="text-center mb-8 mt-4">
+				<img src="https://xdrqauwxvwooojufzndv.supabase.co/storage/v1/object/public/icons/logo.png" alt="Logo Inspektorat" class="h-14 md:h-16 mx-auto mb-4">
+				<h1 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900">INSPEKTORAT</h1>
+			</div>
+			
+			<form onsubmit="handleLogin(event)" class="space-y-4">
+				<div class="relative group z-30" id="dropdown-kabupaten">
+					<input type="hidden" name="kabupaten" id="input-kabupaten" required>
+					<div class="relative">
+						<button type="button" onclick="toggleDropdown('dropdown-kabupaten')" class="w-full bg-slate-50 border border-slate-200 text-slate-400 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 md:p-4 text-left flex justify-between items-center transition-all hover:bg-slate-100 outline-none">
+							<span class="truncate dropdown-label">Pilih Provinsi/Kabupaten/Kota</span>
+							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+							</svg>
+						</button>
+					</div>
+					<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
+						<div class="max-h-48 overflow-y-auto py-1 custom-scroll"></div>
+					</div>
+				</div>
+				
+				<div class="relative group z-20" id="dropdown-opd">
+					<input type="hidden" name="opd" id="input-opd" required>
+					<div class="relative">
+						<button type="button" onclick="toggleDropdown('dropdown-opd')" class="w-full bg-slate-50 border border-slate-200 text-slate-400 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 md:p-4 text-left flex justify-between items-center transition-all hover:bg-slate-100 outline-none">
+							<span class="truncate dropdown-label">Pilih OPD</span>
+							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+							</svg>
+						</button>
+					</div>
+					<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
+						<div class="max-h-48 overflow-y-auto py-1 custom-scroll"></div>
+					</div>
+				</div>
+				
+				<div class="relative z-10">
+					<input type="password" id="password" required placeholder="Password" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent block p-3.5 md:p-4 outline-none transition-all placeholder:text-slate-400">
+				</div>
+				
+				<button type="submit" class="w-full text-white bg-slate-900 hover:bg-slate-800 focus:ring-4 focus:ring-slate-300 font-bold rounded-xl text-sm md:text-base px-5 py-3.5 md:py-4 text-center shadow-lg shadow-slate-900/20 transform active:scale-[0.98] transition-all duration-200 mt-2">
+					MASUK SISTEM
+				</button>
+			</form>
+		</div>
+	</div>
+	
+	<header id="app-header" class="flex-none h-20 bg-white/90 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-4 md:px-6 z-50 shadow-sm hidden opacity-0 transition-all duration-500 relative">
+		<div class="flex items-center">
+			<img src="https://xdrqauwxvwooojufzndv.supabase.co/storage/v1/object/public/icons/logo.png" alt="Logo" class="h-8 md:h-10 w-auto mr-3 md:mr-4 transition-all">
+			<div class="flex flex-col justify-center">
+				<span class="text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-none transition-all">INSPEKTORAT</span>
+				<span class="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Provinsi Lampung</span>
+			</div>
+		</div>
+		<div class="flex flex-col items-end justify-center">
+			<span id="clock-date" class="text-xs md:text-sm font-bold text-slate-800 uppercase tracking-wide text-right"></span>
+			<span id="clock-time" class="text-[10px] md:text-xs font-medium text-slate-500 font-mono tracking-tight mt-0.5"></span>
+		</div>
+	</header>
+	
+	<main id="main-container" class="flex-1 overflow-y-auto w-full relative hidden opacity-0 transition-all duration-500 bg-[#F8F9FA]">
+		<div class="fixed inset-0 flex items-center justify-center pointer-events-none opacity-30 z-0">
+			<p class="text-6xl md:text-9xl font-bold text-slate-100 select-none transition-all">SIP</p>
+		</div>
+		
+		<div class="min-h-full w-full flex flex-col items-center justify-center p-3 md:p-4 relative z-10 py-4 md:py-6">
+			<div class="w-full max-w-3xl bg-white rounded-[1.5rem] shadow-xl shadow-slate-200/60 border border-slate-100 p-5 md:p-6 fade-in">
+				<div class="space-y-5">
+					
+					<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100 space-y-4">
+						<div>
+							<label class="block text-sm md:text-lg font-medium text-slate-800 leading-relaxed">
+								Apakah Pengelolaan Barang sudah dilaksanakan sesuai dengan aturan yang berlaku?
+							</label>
+						</div>
+						<div class="grid grid-cols-1 gap-4">
+							<div class="relative group w-full" id="dropdown-tanya">
+								<input type="hidden" name="jawaban_dropdown" id="input-tanya">
+								<div class="relative">
+									<button type="button" onclick="toggleDropdown('dropdown-tanya')" class="w-full bg-white border border-slate-200 text-slate-500 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 text-left flex justify-between items-center transition-all hover:bg-slate-50 outline-none shadow-sm">
+										<span class="truncate dropdown-label font-medium">Pilih Jawaban</span>
+										<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+										</svg>
+									</button>
+								</div>
+								<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
+									<div class="py-1">
+										<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-tanya', 'Ya', 'Ya, Sudah Sesuai')">
+											<span class="font-medium">Ya, Sudah Sesuai</span>
+										</div>
+										<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-tanya', 'Tidak', 'Tidak / Belum Sesuai')">
+											<span class="font-medium">Tidak / Belum Sesuai</span>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="relative w-full">
+								<textarea rows="4" class="w-full bg-white border border-slate-200 text-slate-800 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Silakan tambahkan catatan atau penjelasan detail di sini jika pilihan jawaban dirasa belum cukup..."></textarea>
+							</div>
+						</div>
+					</div>
+					
+					<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100">
+						<div class="mb-4">
+							<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+								</svg>
+								Bukti Dukung Diperlukan:
+							</h3>
+							<ul class="space-y-2">
+								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">1. SK PPTK</li>
+								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">2. SK GUBERNUR</li>
+								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">3. SK PENGURUS BARANG</li>
+							</ul>
+						</div>
+						
+						<div class="relative">
+							<input type="file" id="file-upload" class="hidden" multiple onchange="handleFileUpload(this)">
+							<label for="file-upload" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-sm px-5 py-3.5 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+								</svg>
+								UPLOAD FILE
+							</label>
+						</div>
+						
+						<div id="file-preview-list" class="hidden space-y-2 mt-3"></div>
+						
+						<div class="mt-4 pt-4 border-t border-slate-200/60">
+							<textarea rows="3" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Tuliskan alasan atau kendala di sini jika dokumen Bukti Dukung tidak tersedia atau belum lengkap..."></textarea>
+						</div>
+					</div>
+					
+					<div class="pt-2 flex justify-end">
+						<button type="button" onclick="kirimJawaban()" class="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 focus:ring-4 focus:ring-slate-200 font-bold rounded-xl text-sm px-8 py-3.5 shadow-lg shadow-slate-900/10 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2">
+							KIRIM JAWABAN
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+							</svg>
+						</button>
+					</div>
+					
+				</div>
+			</div>
+			<div class="h-12"></div>
+		</div>
+	</main>
+	
+	<script>
+		document.addEventListener('DOMContentLoaded', async () => {
+			updateTime();
+			setInterval(updateTime, 1000);
+			try {
+				const res = await fetch('/api/api?action=get_data');
+				const data = await res.json();
+				if(data.kabupaten) {
+					renderDropdown('dropdown-kabupaten', data.kabupaten, 'Daftar Wilayah');
+					renderDropdown('dropdown-opd', data.opd, 'Unit Kerja');
+				}
+			} catch (e) {
+				console.error("Gagal load data master", e);
+			}
+		});
+		
+		function updateTime() {
+			const now = new Date();
+			const dateOpts = {
+				weekday: 'long',
+				day: 'numeric',
+				month: 'long',
+				year: 'numeric'
+			};
+			document.getElementById('clock-date').textContent = now.toLocaleDateString('id-ID', dateOpts);
+			document.getElementById('clock-time').textContent = now.toLocaleTimeString('id-ID', {
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit'
+			}) + ' WIB';
+		}
+		
+		function toggleDropdown(id) {
+			const menu = document.getElementById(id).querySelector('.dropdown-menu');
+			menu.classList.toggle('hidden');
+		}
+		
+		function selectOption(id, val, label) {
+			document.getElementById(id).querySelector('input').value = val;
+			document.querySelector(`#${id} .dropdown-label`).textContent = label;
+			document.getElementById(id).querySelector('.dropdown-menu').classList.add('hidden');
+		}
+		
+		function renderDropdown(id, items, title) {
+			const container = document.querySelector(`#${id} .custom-scroll`);
+			container.innerHTML = `<div class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">${title}</div>`;
+			items.forEach(item => {
+				container.innerHTML += `
+                    <div class="option-item cursor-pointer px-4 py-2.5 text-sm md:text-base text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-between group-item" 
+                         onclick="selectOption('${id}', '${item.value}', '${item.label}')">
+                        <span>${item.label}</span>
+                    </div>`;
+			});
+			document.querySelector(`#${id} .dropdown-label`).textContent = id === 'dropdown-kabupaten' ? 'Pilih Wilayah' : 'Pilih OPD';
+		}
+		async function handleLogin(event) {
+			event.preventDefault();
+			const kab = document.getElementById('input-kabupaten').value;
+			const pass = document.getElementById('password').value;
+			const btn = event.target.querySelector('button');
+			const originalText = btn.innerHTML;
+			if(!kab || !pass) {
+				alert("Lengkapi Wilayah dan Password!");
+				return;
+			}
+			btn.innerHTML = "Memeriksa...";
+			btn.disabled = true;
+			try {
+				const res = await fetch('/api/api?action=login', {
+					method: 'POST',
+					body: JSON.stringify({
+						username: kab,
+						password: pass
+					})
+				});
+				const result = await res.json();
+				if(result.success) {
+					const loginSection = document.getElementById('login-section');
+					loginSection.classList.add('opacity-0', 'pointer-events-none');
+					setTimeout(() => {
+						loginSection.style.display = 'none';
+						document.getElementById('app-header').classList.remove('hidden');
+						document.getElementById('main-container').classList.remove('hidden');
+						setTimeout(() => {
+							document.getElementById('app-header').classList.remove('opacity-0');
+							document.getElementById('main-container').classList.remove('opacity-0');
+						}, 50);
+					}, 500);
+				} else {
+					alert("Login Gagal! Periksa Username/Password.");
+					btn.innerHTML = originalText;
+					btn.disabled = false;
+				}
+			} catch (e) {
+				alert("Kesalahan koneksi.");
+				console.error(e);
+				btn.innerHTML = originalText;
+				btn.disabled = false;
+			}
+		}
+		
+		function handleFileUpload(input) {
+			const previewList = document.getElementById('file-preview-list');
+			previewList.innerHTML = '';
+			if(input.files && input.files.length > 0) {
+				previewList.classList.remove('hidden');
+				Array.from(input.files).forEach((file) => {
+					const fileItem = document.createElement('div');
+					fileItem.className = 'flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm animate-fade-in gap-3';
+					fileItem.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <p class="truncate text-sm font-medium text-slate-700" title="${file.name}">${file.name}</p>
+                        </div>
+                        <div class="flex-none">
+                            <button type="button" onclick="this.closest('.animate-fade-in').remove()" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
+                        </div>
+                    `;
+					previewList.appendChild(fileItem);
+				});
+			} else {
+				previewList.classList.add('hidden');
+			}
+		}
+		async function kirimJawaban() {
+			const btn = document.querySelector('button[onclick="kirimJawaban()"]');
+			const originalText = btn.innerHTML;
+			const data = {
+				kabupaten: document.getElementById('input-kabupaten').value,
+				opd: document.getElementById('input-opd').value,
+				jawaban: document.getElementById('input-tanya').value,
+				penjelasan: document.querySelector('textarea[placeholder^="Silakan"]').value || "-",
+				alasan: document.querySelector('textarea[placeholder^="Tuliskan"]').value || "-",
+				files: []
+			};
+			if(!data.jawaban) {
+				alert("Pilih jawaban (Ya/Tidak) dahulu!");
+				return;
+			}
+			btn.innerHTML = "Mengirim Data...";
+			btn.disabled = true;
+			try {
+				const fileInput = document.getElementById('file-upload');
+				for(let file of fileInput.files) {
+					if(file.size > 5 * 1024 * 1024) throw new Error(`File ${file.name} terlalu besar (Max 5MB)`);
+					const base64 = await toBase64(file);
+					data.files.push({
+						name: file.name,
+						type: file.type,
+						content: base64
+					});
+				}
+				const res = await fetch('/api/api?action=submit', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(data)
+				});
+				if(res.ok) {
+					alert("Data Berhasil Disimpan!");
+					location.reload();
+				} else {
+					const err = await res.json();
+					throw new Error(err.error || "Gagal menyimpan.");
+				}
+			} catch (e) {
+				alert("Error: " + e.message);
+			} finally {
+				btn.innerHTML = originalText;
+				btn.disabled = false;
+			}
+		}
+		const toBase64 = file => new Promise((r, j) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(file);
+			reader.onload = () => r(reader.result);
+			reader.onerror = j;
+		});
+		window.onclick = function(event) {
+			if(!event.target.closest('.relative.group')) {
+				document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+			}
+		}
+	</script>
 </body>
 </html>
