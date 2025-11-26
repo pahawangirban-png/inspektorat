@@ -1,7 +1,6 @@
 const { google } = require('googleapis');
 
 exports.handler = async (event, context) => {
-  // Setup Koneksi Google
   const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
   const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
   const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
@@ -17,11 +16,11 @@ exports.handler = async (event, context) => {
 
   try {
     
-    // === 1. AKSI: AMBIL DATA DROPDOWN (DARI SHEET 'auth') ===
+    // === 1. AKSI: AMBIL DATA (REVISI URUTAN KOLOM) ===
     if (action === 'get_data') {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'auth!A2:E100', // Kita baca sheet AUTH
+        range: 'auth!A2:C100', // Ambil Kolom A, B, C
       });
       const rows = response.data.values || [];
       
@@ -31,59 +30,59 @@ exports.handler = async (event, context) => {
       let opdSet = new Set();
 
       rows.forEach(row => {
-        // ASUMSI STRUKTUR SHEET AUTH BERDASARKAN PENJELASAN ANDA:
-        // row[0] = Username / Kode Kabupaten (Dipakai buat Login)
-        // row[1] = Password
-        // row[2] = Nama Kabupaten (Tampilan Visual)
-        // row[3] = Nama OPD (Tampilan Visual)
+        // PERBAIKAN URUTAN KOLOM DISINI:
+        // Kolom A (0) = Kabupaten
+        // Kolom B (1) = OPD
+        // Kolom C (2) = Password (Jangan diambil untuk dropdown)
 
-        const kodeUser = row[0]; // Value (Dikirim ke sistem)
-        const namaKab = row[2];  // Label (Dilihat user) -> INI YANG PENTING AGAR TIDAK MUNCUL ANGKA 1
-        const namaOpd = row[3];  // Label OPD
+        const valKab = row[0]; // Nama Kabupaten
+        const valOpd = row[1]; // Nama OPD
 
-        // Simpan Kabupaten (Cegah Duplikat)
-        if(kodeUser && namaKab && !kabSet.has(namaKab)) {
-            kabupatens.push({ label: namaKab, value: kodeUser });
-            kabSet.add(namaKab);
+        // Masukkan ke List Kabupaten (Cegah Duplikat)
+        if(valKab && !kabSet.has(valKab)) {
+            // Label & Value sama-sama Nama Kabupaten
+            kabupatens.push({ label: valKab, value: valKab });
+            kabSet.add(valKab);
         }
 
-        // Simpan OPD
-        if(namaOpd && !opdSet.has(namaOpd)) {
-            opds.push({ label: namaOpd, value: namaOpd });
-            opdSet.add(namaOpd);
+        // Masukkan ke List OPD
+        if(valOpd && !opdSet.has(valOpd)) {
+            opds.push({ label: valOpd, value: valOpd });
+            opdSet.add(valOpd);
         }
       });
 
       return { statusCode: 200, body: JSON.stringify({ kabupaten: kabupatens, opd: opds }) };
     }
 
-    // === 2. AKSI: LOGIN (CEK SHEET 'auth') ===
+    // === 2. AKSI: LOGIN (REVISI URUTAN KOLOM) ===
     else if (action === 'login') {
       if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
       const { username, password } = JSON.parse(event.body);
 
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'auth!A2:B100', // Cek Kolom Username & Password saja
+        range: 'auth!A2:C100', 
       });
       
       const rows = response.data.values || [];
       
-      // Cari kecocokan Username & Password
+      // Cek Login:
+      // Username user == Row[0] (Kabupaten)
+      // Password user == Row[2] (Password)
       const userFound = rows.find(row => 
           String(row[0]).trim() === String(username).trim() && 
-          String(row[1]).trim() === String(password).trim()
+          String(row[2]).trim() === String(password).trim()
       );
 
       return { statusCode: 200, body: JSON.stringify({ success: !!userFound }) };
     }
 
-    // === 3. AKSI: SUBMIT (Kirim Jawaban) ===
+    // === 3. AKSI: SUBMIT (TIDAK BERUBAH) ===
     else if (action === 'submit') {
       if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
       const data = JSON.parse(event.body);
       
-      // Upload Files
       let fileLinks = [];
       if (data.files && data.files.length > 0) {
         for (const file of data.files) {
@@ -97,7 +96,6 @@ exports.handler = async (event, context) => {
         }
       }
 
-      // Simpan Jawaban ke Sheet 'database'
       const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
