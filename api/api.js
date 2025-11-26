@@ -4,7 +4,6 @@ const { google } = require('googleapis');
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Bersihkan private key dari karakter baris baru (\n) yang sering rusak
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -56,21 +55,17 @@ module.exports = async (req, res) => {
     const { action } = req.query;
 
     try {
-        if (!authClient) return res.status(500).json({ error: "Auth Gagal. Cek Env Var." });
+        if (!authClient) return res.status(500).json({ error: "Auth Gagal." });
         await authClient.authorize();
 
-        // === ACTION: GET DATA (DROPDOWN) ===
+        // === ACTION: GET DATA (Dropdown Login) ===
         if (action === 'get_data') {
-            // Ambil Kolom A, B, C (Kabupaten, OPD, Password)
+            // AUTH: Kolom A=Kabupaten, Kolom B=OPD
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'auth!A2:C', 
             });
             const rows = response.data.values || [];
-            
-            // --- MAPPING SESUAI INSTRUKSI ANDA ---
-            // Index 0 = Kolom A = Kabupaten
-            // Index 1 = Kolom B = OPD
             
             const kabs = [...new Set(rows.map(r => r[0]).filter(k => k && k.trim() !== ''))].sort();
             const opds = [...new Set(rows.map(r => r[1]).filter(o => o && o.trim() !== ''))].sort();
@@ -84,43 +79,59 @@ module.exports = async (req, res) => {
         // === ACTION: LOGIN ===
         else if (action === 'login') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { username, password } = body; // username = Kabupaten
+            const { username, password } = body;
 
+            // AUTH: A=User, B=OPD, C=Pass
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'auth!A2:C', 
             });
             const rows = response.data.values || [];
             
-            // Logika Login:
-            // Cek Kolom A (Index 0) == Username (Kabupaten)
-            // Cek Kolom C (Index 2) == Password
             const user = rows.find(r => r[0] == username && r[2] == password);
 
             if (user) {
-                // Return data: Kabupaten (Index 0) dan OPD (Index 1)
                 return res.status(200).json({ success: true, kabupaten: user[0], opd: user[1] });
             }
             return res.status(401).json({ success: false });
         }
 
-        // === ACTION: GET SOAL ===
+        // === ACTION: GET SOAL (DISINI KITA TELITI STRUKTURNYA) ===
         else if (action === 'get_soal') {
             const { kabupaten, opd } = req.query;
+            
+            // Mengambil seluruh kolom A sampai L
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'master_pertanyaan!A2:L',
             });
             const rows = response.data.values || [];
             
+            // --- FILTERING ---
+            // Kode ini berasumsi Struktur:
+            // Kolom A (Index 0) = Nomor
+            // Kolom B (Index 1) = Kabupaten  <-- FILTER
+            // Kolom C (Index 2) = OPD        <-- FILTER
+            
             const result = rows
-                .filter(r => (r[1]||'').trim().toLowerCase() === kabupaten.trim().toLowerCase() && 
-                             (r[2]||'').trim().toLowerCase() === opd.trim().toLowerCase())
+                .filter(r => {
+                    // Pastikan Kolom tidak kosong & cocok dengan login
+                    const rowKab = (r[1] || '').trim().toLowerCase();
+                    const rowOpd = (r[2] || '').trim().toLowerCase();
+                    
+                    // Filter: Harus cocok persis
+                    return rowKab === kabupaten.trim().toLowerCase() && 
+                           rowOpd === opd.trim().toLowerCase();
+                })
                 .map(r => ({
-                    id: r[3], pertanyaan: r[4], tipe: r[5],
-                    bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean),
-                    butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),
-                    judul_section: r[10] || '', sub_judul: r[11] || ''
+                    // MAPPING DATA KE FRONTEND
+                    id: r[3],             // Kolom D = ID
+                    pertanyaan: r[4],     // Kolom E = Pertanyaan
+                    tipe: r[5],           // Kolom F = Tipe Jawaban
+                    bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean), // Kolom G
+                    butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),            // Kolom I
+                    judul_section: r[10] || '', // Kolom K
+                    sub_judul: r[11] || ''      // Kolom L
                 }));
 
             return res.status(200).json({ success: true, data: result });
