@@ -1,116 +1,150 @@
 const { google } = require('googleapis');
 
-exports.handler = async (event, context) => {
-  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-  const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-  const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID;
+// 1. SETUP AUTH MENGGUNAKAN 'GOOGLE_CREDENTIALS'
+// Kita parse string JSON dari Env Variable Netlify menjadi Object
+let credentials;
+try {
+    credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+} catch (e) {
+    console.error("Gagal membaca GOOGLE_CREDENTIALS. Pastikan format JSON benar.", e);
+    credentials = {}; // Fallback agar tidak crash total saat start
+}
 
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const drive = google.drive({ version: 'v3', auth });
+// Konfigurasi Auth Client
+const auth = new google.auth.JWT(
+    credentials.client_email, // Ambil email dari JSON
+    null,
+    credentials.private_key,  // Ambil private key dari JSON
+    [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+);
 
-  const action = event.queryStringParameters.action;
+const sheets = google.sheets({ version: 'v4', auth });
+// Variabel lain tetap diambil dari Env terpisah sesuai screenshot Anda
+const spreadsheetId = process.env.SPREADSHEET_ID;
+const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-  try {
-    
-    // === 1. AKSI: AMBIL DATA (REVISI URUTAN KOLOM) ===
-    if (action === 'get_data') {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'auth!A2:C100', // Ambil Kolom A, B, C
-      });
-      const rows = response.data.values || [];
-      
-      let kabupatens = [];
-      let opds = [];
-      let kabSet = new Set();
-      let opdSet = new Set();
+module.exports = async (req, res) => {
+    // 2. SETUP HEADER CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-      rows.forEach(row => {
-        // PERBAIKAN URUTAN KOLOM DISINI:
-        // Kolom A (0) = Kabupaten
-        // Kolom B (1) = OPD
-        // Kolom C (2) = Password (Jangan diambil untuk dropdown)
-
-        const valKab = row[0]; // Nama Kabupaten
-        const valOpd = row[1]; // Nama OPD
-
-        // Masukkan ke List Kabupaten (Cegah Duplikat)
-        if(valKab && !kabSet.has(valKab)) {
-            // Label & Value sama-sama Nama Kabupaten
-            kabupatens.push({ label: valKab, value: valKab });
-            kabSet.add(valKab);
-        }
-
-        // Masukkan ke List OPD
-        if(valOpd && !opdSet.has(valOpd)) {
-            opds.push({ label: valOpd, value: valOpd });
-            opdSet.add(valOpd);
-        }
-      });
-
-      return { statusCode: 200, body: JSON.stringify({ kabupaten: kabupatens, opd: opds }) };
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
     }
 
-    // === 2. AKSI: LOGIN (REVISI URUTAN KOLOM) ===
-    else if (action === 'login') {
-      if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-      const { username, password } = JSON.parse(event.body);
+    const { action } = req.query;
 
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'auth!A2:C100', 
-      });
-      
-      const rows = response.data.values || [];
-      
-      // Cek Login:
-      // Username user == Row[0] (Kabupaten)
-      // Password user == Row[2] (Password)
-      const userFound = rows.find(row => 
-          String(row[0]).trim() === String(username).trim() && 
-          String(row[2]).trim() === String(password).trim()
-      );
+    try {
+        await auth.authorize(); // Verifikasi koneksi ke Google
 
-      return { statusCode: 200, body: JSON.stringify({ success: !!userFound }) };
-    }
+        // ---------------------------------------------------------
+        // ACTION: GET_SOAL (Mengambil pertanyaan spesifik OPD)
+        // ---------------------------------------------------------
+        if (action === 'get_soal') {
+            const { kabupaten, opd } = req.query;
 
-    // === 3. AKSI: SUBMIT (TIDAK BERUBAH) ===
-    else if (action === 'submit') {
-      if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-      const data = JSON.parse(event.body);
-      
-      let fileLinks = [];
-      if (data.files && data.files.length > 0) {
-        for (const file of data.files) {
-          const buffer = Buffer.from(file.content.split(',')[1], 'base64');
-          const uploadRes = await drive.files.create({
-            resource: { name: file.name, parents: [DRIVE_FOLDER_ID] },
-            media: { mimeType: file.type, body: require('stream').Readable.from(buffer) },
-            fields: 'webViewLink'
-          });
-          fileLinks.push(uploadRes.data.webViewLink);
+            if (!kabupaten || !opd) {
+                return res.status(400).json({ error: 'Kabupaten dan OPD diperlukan' });
+            }
+
+            // Baca sheet 'master_pertanyaan'
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: 'master_pertanyaan!A2:L', 
+            });
+
+            const rows = response.data.values || [];
+
+            // FILTER DATA
+            // Index 1: Kabupaten, Index 2: OPD
+            const filteredRows = rows.filter(row => {
+                const rowKab = (row[1] || '').trim().toLowerCase();
+                const rowOpd = (row[2] || '').trim().toLowerCase();
+                return rowKab === kabupaten.toLowerCase() && rowOpd === opd.toLowerCase();
+            });
+
+            // FORMAT JSON UNTUK FRONTEND
+            const questions = filteredRows.map(row => {
+                // Index 6: Bukti Dukung (misal dipisah enter)
+                const rawBukti = row[6] || ''; 
+                const listBukti = rawBukti.split(/\r?\n/).filter(t => t.trim().length > 0);
+
+                return {
+                    id: row[3],             // id_pertanyaan
+                    pertanyaan: row[4],     // pertanyaan
+                    tipe: row[5],           // tipe_jawaban
+                    bukti_dukung: listBukti,// array string
+                    butuh_file: (row[8] === 'Ya' || row[8] === 'TRUE'), // file_upload
+                    judul_section: row[10] || '', // judul
+                    sub_judul: row[11] || ''      // sub_judul
+                };
+            });
+
+            return res.status(200).json({ success: true, data: questions });
         }
-      }
 
-      const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'database!A:G',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[now, data.kabupaten, data.opd, data.jawaban, data.penjelasan, fileLinks.join(',\n'), data.alasan]] }
-      });
+        // ---------------------------------------------------------
+        // ACTION: LOGIN
+        // ---------------------------------------------------------
+        else if (action === 'login') {
+            const body = req.body ? JSON.parse(req.body) : {};
+            const { username, password } = body;
 
-      return { statusCode: 200, body: JSON.stringify({ message: "Sukses" }) };
+            // Ambil data user dari sheet 'auth'
+            // Asumsi kolom: A=Username, B=Password, C=Kabupaten, D=OPD
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: 'auth!A2:D', 
+            });
+
+            const rows = response.data.values || [];
+            
+            // Cari user yang cocok
+            const user = rows.find(row => row[0] == username && row[1] == password);
+
+            if (user) {
+                return res.status(200).json({ 
+                    success: true, 
+                    kabupaten: user[2], 
+                    opd: user[3] 
+                });
+            } else {
+                return res.status(401).json({ success: false, message: 'Login gagal' });
+            }
+        }
+
+        // ---------------------------------------------------------
+        // ACTION: GET_DATA (Dropdown Awal)
+        // ---------------------------------------------------------
+        else if (action === 'get_data') {
+            // Ambil list unik dari sheet auth untuk dropdown login
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: 'auth!C2:D', 
+            });
+            
+            const rows = response.data.values || [];
+            
+            const kabs = [...new Set(rows.map(r => r[0]).filter(Boolean))].map(k => ({label: k, value: k}));
+            const opds = [...new Set(rows.map(r => r[1]).filter(Boolean))].map(o => ({label: o, value: o}));
+
+            return res.status(200).json({
+                kabupaten: kabs,
+                opd: opds
+            });
+        }
+        
+        else {
+            res.status(400).json({ error: 'Action tidak valid' });
+        }
+
+    } catch (error) {
+        console.error("API Error Details:", error);
+        res.status(500).json({ error: error.message });
     }
-
-    return { statusCode: 400, body: "Aksi tidak dikenal" };
-
-  } catch (error) {
-    console.error(error);
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-  }
 };
