@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Membersihkan format private key agar aman di Vercel
+    // Membersihkan format private key dari karakter baris baru (\n)
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -21,7 +21,7 @@ const sheets = google.sheets({ version: 'v4', auth: authClient });
 const spreadsheetId = process.env.SPREADSHEET_ID;
 const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// --- 2. HELPER UPLOAD KE DRIVE ---
+// --- 2. HELPER UPLOAD ---
 async function uploadToDrive(fileData, folderId) {
     try {
         if (!authClient) throw new Error("Auth belum siap");
@@ -41,14 +41,14 @@ async function uploadToDrive(fileData, folderId) {
         });
         return response.data.webViewLink;
     } catch (error) {
-        console.error("Gagal Upload:", error);
+        console.error("Upload Error:", error);
         return "Gagal Upload";
     }
 }
 
 // --- 3. MAIN API HANDLER ---
 module.exports = async (req, res) => {
-    // Setup Headers
+    // Headers CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -58,13 +58,10 @@ module.exports = async (req, res) => {
     const { action } = req.query;
 
     try {
-        if (!authClient) return res.status(500).json({ error: "Auth Gagal. Cek Environment Variables." });
+        if (!authClient) return res.status(500).json({ error: "Auth Gagal. Cek Env Variables." });
         await authClient.authorize();
 
-        // =========================================================
-        // ACTION 1: GET DATA (Dropdown Login)
-        // Sumber: Tab 'auth' Kolom A (Kabupaten) & B (OPD)
-        // =========================================================
+        // === ACTION: GET DATA (Dropdown) ===
         if (action === 'get_data') {
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
@@ -81,10 +78,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // =========================================================
-        // ACTION 2: LOGIN
-        // Sumber: Tab 'auth' -> A(User), B(OPD), C(Pass)
-        // =========================================================
+        // === ACTION: LOGIN ===
         else if (action === 'login') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { username, password } = body; 
@@ -106,13 +100,11 @@ module.exports = async (req, res) => {
             return res.status(401).json({ success: false });
         }
 
-        // =========================================================
-        // ACTION 3: GET SOAL
-        // Sumber: Tab 'master_pertanyaan'
-        // =========================================================
+        // === ACTION: GET SOAL (UPDATE UTAMA DISINI) ===
         else if (action === 'get_soal') {
             const { kabupaten, opd } = req.query;
             
+            // Ambil semua kolom A sampai L
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'master_pertanyaan!A2:L',
@@ -126,37 +118,41 @@ module.exports = async (req, res) => {
                     return rowKab === kabupaten.trim().toLowerCase() && 
                            rowOpd === opd.trim().toLowerCase();
                 })
-                .map(r => ({
-                    id: r[3],
-                    pertanyaan: r[4],
-                    tipe: r[5],
-                    bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean),
-                    butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),
-                    judul_section: r[10] || '',
-                    sub_judul: r[11] || ''
-                }));
+                .map(r => {
+                    // MAPPING KOLOM SESUAI PERMINTAAN ANDA:
+                    // 0:no_index, 1:kab, 2:opd, 3:id, 4:tanya, 5:tipe
+                    // 6:data_permintaan, 7:jml_file, 8:file_upload, 9:input_alasan, 10:judul, 11:sub
+                    
+                    // Logika "Ya"/"Tidak" dibuat tidak sensitif huruf besar/kecil
+                    const isUpload = (r[8] || '').trim().toLowerCase() === 'ya';
+                    const isWajibAlasan = (r[9] || '').trim().toLowerCase() === 'ya';
+
+                    return {
+                        id: r[3],
+                        pertanyaan: r[4],
+                        tipe: r[5],  // "pilihan" atau "teks"
+                        bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean), // data_permintaan
+                        butuh_file: isUpload,  // file_upload (Boolean)
+                        wajib_alasan: isWajibAlasan, // input_alasan (Boolean)
+                        judul_section: r[10] || '',
+                        sub_judul: r[11] || ''
+                    };
+                });
 
             return res.status(200).json({ success: true, data: result });
         }
 
-        // =========================================================
-        // ACTION 4: SUBMIT
-        // Tujuan: Tab 'database'
-        // Urutan: id_transaksi, time_stamp, id_pertanyaan, pertanyaan, 
-        //         kabupaten, opd, jawaban_pilihan, jawaban_teks, alasan, link_upload
-        // =========================================================
+        // === ACTION: SUBMIT ===
         else if (action === 'submit') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kabupaten, opd, data_jawaban } = body;
             const rowsToSave = [];
-
-            // Generate ID Transaksi Unik satu kali untuk satu kali submit
+            
             const idTransaksi = 'TRX-' + Date.now() + Math.floor(Math.random() * 1000);
 
             if (data_jawaban && Array.isArray(data_jawaban)) {
                 for (const item of data_jawaban) {
                     let linkFiles = [];
-                    // Upload File jika ada
                     if (item.files && item.files.length > 0) {
                         for (const f of item.files) {
                             const link = await uploadToDrive(f, driveFolderId);
@@ -164,18 +160,17 @@ module.exports = async (req, res) => {
                         }
                     }
                     
-                    // PENYESUAIAN URUTAN KOLOM DATABASE:
                     rowsToSave.push([
-                        idTransaksi,                                                       // 1. id_transaksi
-                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),  // 2. time_stamp
-                        item.id_pertanyaan,                                                // 3. id_pertanyaan
-                        item.pertanyaan,                                                   // 4. pertanyaan
-                        kabupaten,                                                         // 5. kabupaten
-                        opd,                                                               // 6. opd
-                        item.jawaban,                                                      // 7. jawaban_pilihan
-                        item.penjelasan,                                                   // 8. jawaban_teks
-                        item.alasan,                                                       // 9. alasan
-                        linkFiles.join(',\n')                                              // 10. link_upload
+                        idTransaksi,
+                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
+                        item.id_pertanyaan,
+                        item.pertanyaan,
+                        kabupaten,
+                        opd,
+                        item.jawaban,
+                        item.penjelasan,
+                        item.alasan,
+                        linkFiles.join(',\n')
                     ]);
                 }
                 
