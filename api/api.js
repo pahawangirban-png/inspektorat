@@ -1,10 +1,11 @@
 const { google } = require('googleapis');
+const stream = require('stream'); // Load di awal biar aman
 
 // --- 1. SETUP AUTH ---
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Bersihkan private key dari karakter baris baru (\n)
+    // Bersihkan format private key
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -18,42 +19,45 @@ try {
 }
 
 const sheets = google.sheets({ version: 'v4', auth: authClient });
+const drive = google.drive({ version: 'v3', auth: authClient }); // Load Drive di sini
+
+// Ambil ID Folder dari Env
 const spreadsheetId = process.env.SPREADSHEET_ID;
 const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// --- 2. HELPER UPLOAD (BAGIAN INI YANG KITA PERBAIKI) ---
+// --- 2. HELPER UPLOAD (DIPERBAIKI) ---
 async function uploadToDrive(fileData, folderId) {
     try {
         if (!authClient) throw new Error("Auth belum siap");
-        const { google } = require('googleapis');
-        const stream = require('stream');
         
-        const drive = google.drive({ version: 'v3', auth: authClient });
+        // PENGAMAN: Cek apakah ID Folder terbaca?
+        if (!folderId || folderId.trim() === '') {
+            throw new Error("ID FOLDER KOSONG! Cek Env Var 'GOOGLE_DRIVE_FOLDER_ID' di Vercel.");
+        }
+
         const base64Data = fileData.content.split(',')[1];
         const buffer = Buffer.from(base64Data, 'base64');
         const bufferStream = new stream.PassThrough();
         bufferStream.end(buffer);
 
-        // --- UPLOAD REQUEST ---
         const response = await drive.files.create({
             requestBody: { 
                 name: fileData.name, 
-                // Pastikan folderId dibungkus array
-                parents: folderId ? [folderId] : [] 
+                parents: [folderId.trim()] // Pastikan ID bersih dari spasi
             },
             media: { 
                 mimeType: fileData.type, 
                 body: bufferStream 
             },
-            // === TAMBAHAN PENTING UNTUK MENGATASI ERROR QUOTA ===
             supportsAllDrives: true, 
             fields: 'id, webViewLink'
         });
 
         return response.data.webViewLink;
     } catch (error) {
-        console.error("Gagal Upload Detail:", error.message); // Log error detail
-        return "Gagal Upload";
+        console.error("Gagal Upload (Detail):", error.message);
+        // Kembalikan pesan error agar terbaca di Database/UI
+        return `Gagal: ${error.message}`; 
     }
 }
 
@@ -158,7 +162,7 @@ module.exports = async (req, res) => {
                     // Upload File
                     if (item.files && item.files.length > 0) {
                         for (const f of item.files) {
-                            // PANGGIL FUNGSI UPLOAD
+                            // Panggil fungsi upload dengan Folder ID dari luar
                             const link = await uploadToDrive(f, driveFolderId);
                             linkFiles.push(link);
                         }
