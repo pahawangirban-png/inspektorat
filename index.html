@@ -7,43 +7,14 @@
 	<script src="https://cdn.tailwindcss.com"></script>
 	<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 	<style>
-		html {
-			overscroll-behavior: none;
-			height: 100%;
-		}
-		body {
-			font-family: 'Plus Jakarta Sans', sans-serif;
-			background-color: #F8F9FA;
-			height: 100%;
-			overflow: hidden;
-			/* Kunci scroll body utama */
-		}
-		.custom-scroll::-webkit-scrollbar {
-			width: 4px;
-		}
-		.custom-scroll::-webkit-scrollbar-track {
-			background: #f1f1f1;
-		}
-		.custom-scroll::-webkit-scrollbar-thumb {
-			background: #cbd5e1;
-			border-radius: 4px;
-		}
-		.custom-scroll::-webkit-scrollbar-thumb:hover {
-			background: #94a3b8;
-		}
-		.fade-in {
-			animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-		}
-		@keyframes fadeIn {
-			from {
-				opacity: 0;
-				transform: translateY(10px);
-			}
-			to {
-				opacity: 1;
-				transform: translateY(0);
-			}
-		}
+		html { overscroll-behavior: none; height: 100%; }
+		body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8F9FA; height: 100%; overflow: hidden; }
+		.custom-scroll::-webkit-scrollbar { width: 4px; }
+		.custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+		.custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+		.custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+		.fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+		@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 	</style>
 </head>
 <body class="text-slate-800 antialiased flex flex-col h-full bg-[#F8F9FA]">
@@ -61,9 +32,7 @@
 					<div class="relative">
 						<button type="button" onclick="toggleDropdown('dropdown-kabupaten')" class="w-full bg-slate-50 border border-slate-200 text-slate-400 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 md:p-4 text-left flex justify-between items-center transition-all hover:bg-slate-100 outline-none">
 							<span class="truncate dropdown-label">Pilih Provinsi/Kabupaten/Kota</span>
-							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
+							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
 						</button>
 					</div>
 					<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
@@ -76,9 +45,7 @@
 					<div class="relative">
 						<button type="button" onclick="toggleDropdown('dropdown-opd')" class="w-full bg-slate-50 border border-slate-200 text-slate-400 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 md:p-4 text-left flex justify-between items-center transition-all hover:bg-slate-100 outline-none">
 							<span class="truncate dropdown-label">Pilih OPD</span>
-							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-							</svg>
+							<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
 						</button>
 					</div>
 					<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
@@ -118,90 +85,28 @@
 		
 		<div class="min-h-full w-full flex flex-col items-center justify-center p-3 md:p-4 relative z-10 py-4 md:py-6">
 			<div class="w-full max-w-3xl bg-white rounded-[1.5rem] shadow-xl shadow-slate-200/60 border border-slate-100 p-5 md:p-6 fade-in">
-				<div class="space-y-5">
-					
-					<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100 space-y-4">
-						<div>
-							<label class="block text-sm md:text-lg font-medium text-slate-800 leading-relaxed">
-								Apakah Pengelolaan Barang sudah dilaksanakan sesuai dengan aturan yang berlaku?
-							</label>
-						</div>
-						<div class="grid grid-cols-1 gap-4">
-							<div class="relative group w-full" id="dropdown-tanya">
-								<input type="hidden" name="jawaban_dropdown" id="input-tanya">
-								<div class="relative">
-									<button type="button" onclick="toggleDropdown('dropdown-tanya')" class="w-full bg-white border border-slate-200 text-slate-500 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 text-left flex justify-between items-center transition-all hover:bg-slate-50 outline-none shadow-sm">
-										<span class="truncate dropdown-label font-medium">Pilih Jawaban</span>
-										<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-										</svg>
-									</button>
-								</div>
-								<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
-									<div class="py-1">
-										<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-tanya', 'Ya', 'Ya, Sudah Sesuai')">
-											<span class="font-medium">Ya, Sudah Sesuai</span>
-										</div>
-										<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-tanya', 'Tidak', 'Tidak / Belum Sesuai')">
-											<span class="font-medium">Tidak / Belum Sesuai</span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="relative w-full">
-								<textarea rows="4" class="w-full bg-white border border-slate-200 text-slate-800 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Silakan tambahkan catatan atau penjelasan detail di sini jika pilihan jawaban dirasa belum cukup..."></textarea>
-							</div>
-						</div>
+				
+				<div id="dynamic-questions-container" class="space-y-10">
 					</div>
-					
-					<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100">
-						<div class="mb-4">
-							<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-								</svg>
-								Bukti Dukung Diperlukan:
-							</h3>
-							<ul class="space-y-2">
-								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">1. SK PPTK</li>
-								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">2. SK GUBERNUR</li>
-								<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">3. SK PENGURUS BARANG</li>
-							</ul>
-						</div>
-						
-						<div class="relative">
-							<input type="file" id="file-upload" class="hidden" multiple onchange="handleFileUpload(this)">
-							<label for="file-upload" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-sm px-5 py-3.5 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-								</svg>
-								UPLOAD FILE
-							</label>
-						</div>
-						
-						<div id="file-preview-list" class="hidden space-y-2 mt-3"></div>
-						
-						<div class="mt-4 pt-4 border-t border-slate-200/60">
-							<textarea rows="3" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Tuliskan alasan atau kendala di sini jika dokumen Bukti Dukung tidak tersedia atau belum lengkap..."></textarea>
-						</div>
-					</div>
-					
-					<div class="pt-2 flex justify-end">
-						<button type="button" onclick="kirimJawaban()" class="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 focus:ring-4 focus:ring-slate-200 font-bold rounded-xl text-sm px-8 py-3.5 shadow-lg shadow-slate-900/10 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2">
-							KIRIM JAWABAN
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-							</svg>
-						</button>
-					</div>
-					
+
+				<div class="pt-8 flex justify-end">
+					<button type="button" onclick="kirimJawaban()" class="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 focus:ring-4 focus:ring-slate-200 font-bold rounded-xl text-sm px-8 py-3.5 shadow-lg shadow-slate-900/10 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2">
+						KIRIM SEMUA JAWABAN
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+					</button>
 				</div>
+					
 			</div>
 			<div class="h-12"></div>
 		</div>
 	</main>
 	
 	<script>
+		// Global storage untuk file setiap pertanyaan agar tidak tertukar
+		// Format: { "id_pertanyaan": [File1, File2], ... }
+		const fileStorage = {};
+        let loadedQuestions = []; // Menyimpan data pertanyaan mentah
+
 		document.addEventListener('DOMContentLoaded', async () => {
 			updateTime();
 			setInterval(updateTime, 1000);
@@ -216,24 +121,190 @@
 				console.error("Gagal load data master", e);
 			}
 		});
-		
+
+        // --- AUTH & LOAD DATA ---
+		async function handleLogin(event) {
+			event.preventDefault();
+			const kab = document.getElementById('input-kabupaten').value;
+			const opd = document.getElementById('input-opd').value;
+			const pass = document.getElementById('password').value;
+			const btn = event.target.querySelector('button');
+			const originalText = btn.innerHTML;
+			
+			if(!kab || !opd || !pass) {
+				alert("Lengkapi Wilayah, OPD, dan Password!");
+				return;
+			}
+			btn.innerHTML = "Memeriksa...";
+			btn.disabled = true;
+			try {
+				// 1. Proses Login
+				const resLogin = await fetch('/api/api?action=login', {
+					method: 'POST',
+					body: JSON.stringify({ username: kab, password: pass }) 
+				});
+				const resultLogin = await resLogin.json();
+
+				if(resultLogin.success) {
+					// 2. Jika sukses, ambil soal berdasarkan OPD user
+					btn.innerHTML = "Memuat Data...";
+                    // Kita gunakan OPD dari input user
+					const resSoal = await fetch(`/api/api?action=get_soal&kabupaten=${encodeURIComponent(kab)}&opd=${encodeURIComponent(opd)}`);
+					const resultSoal = await resSoal.json();
+
+					if(resultSoal.success && resultSoal.data.length > 0) {
+                        loadedQuestions = resultSoal.data;
+						renderQuestions(resultSoal.data);
+						
+						// Animasi transisi halaman
+						const loginSection = document.getElementById('login-section');
+						loginSection.classList.add('opacity-0', 'pointer-events-none');
+						setTimeout(() => {
+							loginSection.style.display = 'none';
+							document.getElementById('app-header').classList.remove('hidden');
+							document.getElementById('main-container').classList.remove('hidden');
+							setTimeout(() => {
+								document.getElementById('app-header').classList.remove('opacity-0');
+								document.getElementById('main-container').classList.remove('opacity-0');
+							}, 50);
+						}, 500);
+					} else {
+						alert("Login berhasil, namun tidak ada data pertanyaan untuk OPD ini.");
+						btn.innerHTML = originalText;
+						btn.disabled = false;
+					}
+				} else {
+					alert("Login Gagal! Periksa Password.");
+					btn.innerHTML = originalText;
+					btn.disabled = false;
+				}
+			} catch (e) {
+				alert("Kesalahan koneksi.");
+				console.error(e);
+				btn.innerHTML = originalText;
+				btn.disabled = false;
+			}
+		}
+
+		// --- RENDER UI (Sangat penting: Style UI harus sama persis) ---
+		function renderQuestions(questions) {
+			const container = document.getElementById('dynamic-questions-container');
+			container.innerHTML = ''; // Reset container
+
+			questions.forEach((q, index) => {
+				// Buat ID unik untuk setiap elemen berdasarkan ID pertanyaan
+				const qId = q.id; 
+				
+				// Render Judul Section jika ada
+				let sectionHeader = '';
+				if(q.judul_section) {
+					sectionHeader = `
+						<div class="mb-4 border-b pb-2 border-slate-200">
+							<h2 class="text-lg md:text-xl font-bold text-slate-800">${q.judul_section}</h2>
+							${q.sub_judul ? `<p class="text-sm text-slate-500">${q.sub_judul}</p>` : ''}
+						</div>
+					`;
+				}
+
+				// Render List Bukti Dukung
+				let buktiHtml = '';
+				if(q.bukti_dukung && q.bukti_dukung.length > 0) {
+					const listItems = q.bukti_dukung.map(b => 
+						`<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">${b}</li>`
+					).join('');
+					
+					buktiHtml = `
+						<div class="mb-4">
+							<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+								Bukti Dukung Diperlukan:
+							</h3>
+							<ul class="space-y-2">${listItems}</ul>
+						</div>
+					`;
+				}
+
+				// Render Tombol Upload (Hanya jika butuh_file === true)
+				let uploadHtml = '';
+				if(q.butuh_file) {
+					uploadHtml = `
+						<div class="relative mt-4">
+							<input type="file" id="file-upload-${qId}" class="hidden" multiple onchange="handleFileUpload(this, '${qId}')">
+							<label for="file-upload-${qId}" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-sm px-5 py-3.5 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm">
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+								UPLOAD FILE
+							</label>
+						</div>
+						<div id="file-preview-${qId}" class="hidden space-y-2 mt-3"></div>
+						
+						<div class="mt-4 pt-4 border-t border-slate-200/60">
+							<textarea id="alasan-${qId}" rows="3" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Tuliskan alasan atau kendala di sini jika dokumen Bukti Dukung tidak tersedia atau belum lengkap..."></textarea>
+						</div>
+					`;
+				}
+
+				// HTML Item Pertanyaan Full
+				const itemHtml = `
+					<div class="question-item space-y-5" data-id="${qId}">
+						${sectionHeader}
+						
+						<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100 space-y-4">
+							<div>
+								<label class="block text-sm md:text-lg font-medium text-slate-800 leading-relaxed">
+									${index + 1}. ${q.pertanyaan}
+								</label>
+							</div>
+							<div class="grid grid-cols-1 gap-4">
+								<div class="relative group w-full" id="dropdown-${qId}">
+									<input type="hidden" name="jawaban_dropdown" id="input-jawaban-${qId}">
+									<div class="relative">
+										<button type="button" onclick="toggleDropdown('dropdown-${qId}')" class="w-full bg-white border border-slate-200 text-slate-500 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 text-left flex justify-between items-center transition-all hover:bg-slate-50 outline-none shadow-sm">
+											<span class="truncate dropdown-label font-medium">Pilih Jawaban</span>
+											<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+										</button>
+									</div>
+									<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
+										<div class="py-1">
+											<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-${qId}', 'Ya', 'Ya, Sudah Sesuai')">
+												<span class="font-medium">Ya, Sudah Sesuai</span>
+											</div>
+											<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-${qId}', 'Tidak', 'Tidak / Belum Sesuai')">
+												<span class="font-medium">Tidak / Belum Sesuai</span>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="relative w-full">
+									<textarea id="penjelasan-${qId}" rows="4" class="w-full bg-white border border-slate-200 text-slate-800 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Silakan tambahkan catatan atau penjelasan detail di sini jika pilihan jawaban dirasa belum cukup..."></textarea>
+								</div>
+							</div>
+						</div>
+
+						${q.butuh_file ? `<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100">
+							${buktiHtml}
+							${uploadHtml}
+						</div>` : ''}
+					</div>
+                    <hr class="border-slate-200">
+				`;
+
+				container.insertAdjacentHTML('beforeend', itemHtml);
+			});
+		}
+
+		// --- FUNGSI PENDUKUNG ---
 		function updateTime() {
 			const now = new Date();
-			const dateOpts = {
-				weekday: 'long',
-				day: 'numeric',
-				month: 'long',
-				year: 'numeric'
-			};
+			const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
 			document.getElementById('clock-date').textContent = now.toLocaleDateString('id-ID', dateOpts);
-			document.getElementById('clock-time').textContent = now.toLocaleTimeString('id-ID', {
-				hour: '2-digit',
-				minute: '2-digit',
-				second: '2-digit'
-			}) + ' WIB';
+			document.getElementById('clock-time').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
 		}
 		
 		function toggleDropdown(id) {
+            // Tutup semua dropdown lain dulu biar rapi
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                if(menu.parentElement.id !== id) menu.classList.add('hidden');
+            });
 			const menu = document.getElementById(id).querySelector('.dropdown-menu');
 			menu.classList.toggle('hidden');
 		}
@@ -256,58 +327,24 @@
 			});
 			document.querySelector(`#${id} .dropdown-label`).textContent = id === 'dropdown-kabupaten' ? 'Pilih Wilayah' : 'Pilih OPD';
 		}
-		async function handleLogin(event) {
-			event.preventDefault();
-			const kab = document.getElementById('input-kabupaten').value;
-			const pass = document.getElementById('password').value;
-			const btn = event.target.querySelector('button');
-			const originalText = btn.innerHTML;
-			if(!kab || !pass) {
-				alert("Lengkapi Wilayah dan Password!");
-				return;
-			}
-			btn.innerHTML = "Memeriksa...";
-			btn.disabled = true;
-			try {
-				const res = await fetch('/api/api?action=login', {
-					method: 'POST',
-					body: JSON.stringify({
-						username: kab,
-						password: pass
-					})
-				});
-				const result = await res.json();
-				if(result.success) {
-					const loginSection = document.getElementById('login-section');
-					loginSection.classList.add('opacity-0', 'pointer-events-none');
-					setTimeout(() => {
-						loginSection.style.display = 'none';
-						document.getElementById('app-header').classList.remove('hidden');
-						document.getElementById('main-container').classList.remove('hidden');
-						setTimeout(() => {
-							document.getElementById('app-header').classList.remove('opacity-0');
-							document.getElementById('main-container').classList.remove('opacity-0');
-						}, 50);
-					}, 500);
-				} else {
-					alert("Login Gagal! Periksa Username/Password.");
-					btn.innerHTML = originalText;
-					btn.disabled = false;
-				}
-			} catch (e) {
-				alert("Kesalahan koneksi.");
-				console.error(e);
-				btn.innerHTML = originalText;
-				btn.disabled = false;
-			}
-		}
-		
-		function handleFileUpload(input) {
-			const previewList = document.getElementById('file-preview-list');
+
+		// --- LOGIKA FILE UPLOAD PER PERTANYAAN ---
+		function handleFileUpload(input, qId) {
+			const previewList = document.getElementById(`file-preview-${qId}`);
 			previewList.innerHTML = '';
+            
+            // Inisialisasi array jika belum ada
+            if(!fileStorage[qId]) fileStorage[qId] = [];
+
 			if(input.files && input.files.length > 0) {
+                // Tambahkan file baru ke storage
+                Array.from(input.files).forEach(f => fileStorage[qId].push(f));
+            }
+            
+            // Render ulang dari storage
+            if (fileStorage[qId].length > 0) {
 				previewList.classList.remove('hidden');
-				Array.from(input.files).forEach((file) => {
+				fileStorage[qId].forEach((file, idx) => {
 					const fileItem = document.createElement('div');
 					fileItem.className = 'flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm animate-fade-in gap-3';
 					fileItem.innerHTML = `
@@ -315,7 +352,7 @@
                             <p class="truncate text-sm font-medium text-slate-700" title="${file.name}">${file.name}</p>
                         </div>
                         <div class="flex-none">
-                            <button type="button" onclick="this.closest('.animate-fade-in').remove()" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
+                            <button type="button" onclick="removeFile('${qId}', ${idx})" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
                         </div>
                     `;
 					previewList.appendChild(fileItem);
@@ -324,43 +361,104 @@
 				previewList.classList.add('hidden');
 			}
 		}
+
+        function removeFile(qId, index) {
+            fileStorage[qId].splice(index, 1);
+            // Render ulang preview manual (simulate change event logic)
+            const previewList = document.getElementById(`file-preview-${qId}`);
+            previewList.innerHTML = '';
+            if (fileStorage[qId].length > 0) {
+                fileStorage[qId].forEach((file, idx) => {
+					const fileItem = document.createElement('div');
+					fileItem.className = 'flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm animate-fade-in gap-3';
+					fileItem.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <p class="truncate text-sm font-medium text-slate-700" title="${file.name}">${file.name}</p>
+                        </div>
+                        <div class="flex-none">
+                            <button type="button" onclick="removeFile('${qId}', ${idx})" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
+                        </div>
+                    `;
+					previewList.appendChild(fileItem);
+				});
+            } else {
+                previewList.classList.add('hidden');
+            }
+        }
+
+		// --- KIRIM DATA ---
 		async function kirimJawaban() {
 			const btn = document.querySelector('button[onclick="kirimJawaban()"]');
 			const originalText = btn.innerHTML;
-			const data = {
-				kabupaten: document.getElementById('input-kabupaten').value,
-				opd: document.getElementById('input-opd').value,
-				jawaban: document.getElementById('input-tanya').value,
-				penjelasan: document.querySelector('textarea[placeholder^="Silakan"]').value || "-",
-				alasan: document.querySelector('textarea[placeholder^="Tuliskan"]').value || "-",
-				files: []
-			};
-			if(!data.jawaban) {
-				alert("Pilih jawaban (Ya/Tidak) dahulu!");
-				return;
-			}
+            
+            // Loop semua pertanyaan yang ada di layar
+            const payload = {
+                kabupaten: document.getElementById('input-kabupaten').value,
+                opd: document.getElementById('input-opd').value,
+                data_jawaban: []
+            };
+
+            // Validasi: Cek apakah ada pertanyaan
+            if(loadedQuestions.length === 0) {
+                alert("Tidak ada data untuk dikirim.");
+                return;
+            }
+
+            let allFilled = true;
+
+            for (const q of loadedQuestions) {
+                const qId = q.id;
+                const jawabanVal = document.getElementById(`input-jawaban-${qId}`).value;
+                const penjelasanVal = document.getElementById(`penjelasan-${qId}`).value || "-";
+                const alasanVal = document.getElementById(`alasan-${qId}`) ? document.getElementById(`alasan-${qId}`).value : "-";
+                
+                if(!jawabanVal) {
+                    allFilled = false;
+                    // Scroll ke elemen yang belum diisi
+                    document.getElementById(`dropdown-${qId}`).scrollIntoView({behavior: "smooth", block: "center"});
+                    alert(`Mohon pilih jawaban untuk pertanyaan: "${q.pertanyaan.substring(0, 20)}..."`);
+                    break;
+                }
+
+                // Proses Files
+                const filesData = [];
+                const files = fileStorage[qId] || [];
+                for(let file of files) {
+                    if(file.size > 5 * 1024 * 1024) {
+                        alert(`File ${file.name} terlalu besar (Max 5MB)`);
+                        return;
+                    }
+                    const base64 = await toBase64(file);
+                    filesData.push({
+                        name: file.name,
+                        type: file.type,
+                        content: base64
+                    });
+                }
+
+                payload.data_jawaban.push({
+                    id_pertanyaan: qId,
+                    pertanyaan: q.pertanyaan,
+                    jawaban: jawabanVal,
+                    penjelasan: penjelasanVal,
+                    alasan: alasanVal,
+                    files: filesData
+                });
+            }
+
+            if(!allFilled) return;
+
 			btn.innerHTML = "Mengirim Data...";
 			btn.disabled = true;
+
 			try {
-				const fileInput = document.getElementById('file-upload');
-				for(let file of fileInput.files) {
-					if(file.size > 5 * 1024 * 1024) throw new Error(`File ${file.name} terlalu besar (Max 5MB)`);
-					const base64 = await toBase64(file);
-					data.files.push({
-						name: file.name,
-						type: file.type,
-						content: base64
-					});
-				}
 				const res = await fetch('/api/api?action=submit', {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(data)
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
 				});
 				if(res.ok) {
-					alert("✅ Data Berhasil Disimpan!");
+					alert("✅ Semua Data Berhasil Disimpan!");
 					location.reload();
 				} else {
 					const err = await res.json();
@@ -373,12 +471,14 @@
 				btn.disabled = false;
 			}
 		}
+
 		const toBase64 = file => new Promise((r, j) => {
 			const reader = new FileReader();
 			reader.readAsDataURL(file);
 			reader.onload = () => r(reader.result);
 			reader.onerror = j;
 		});
+
 		window.onclick = function(event) {
 			if(!event.target.closest('.relative.group')) {
 				document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
