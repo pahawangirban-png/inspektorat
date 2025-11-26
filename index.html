@@ -102,388 +102,386 @@
 	</main>
 	
 	<script>
-		// Global storage untuk file setiap pertanyaan agar tidak tertukar
-		// Format: { "id_pertanyaan": [File1, File2], ... }
-		const fileStorage = {};
-        let loadedQuestions = []; // Menyimpan data pertanyaan mentah
+    // --- VARIABEL GLOBAL ---
+    // Ditaruh di luar agar bisa diakses semua fungsi
+    const fileStorage = {};
+    let loadedQuestions = []; 
 
-		document.addEventListener('DOMContentLoaded', async () => {
-			updateTime();
-			setInterval(updateTime, 1000);
-			try {
-				const res = await fetch('/api/api?action=get_data');
-				const data = await res.json();
-				if(data.kabupaten) {
-					renderDropdown('dropdown-kabupaten', data.kabupaten, 'Daftar Wilayah');
-					renderDropdown('dropdown-opd', data.opd, 'Unit Kerja');
-				}
-			} catch (e) {
-				console.error("Gagal load data master", e);
-			}
-		});
-
-        // --- AUTH & LOAD DATA ---
-		async function handleLogin(event) {
-			event.preventDefault();
-			const kab = document.getElementById('input-kabupaten').value;
-			const opd = document.getElementById('input-opd').value;
-			const pass = document.getElementById('password').value;
-			const btn = event.target.querySelector('button');
-			const originalText = btn.innerHTML;
-			
-			if(!kab || !opd || !pass) {
-				alert("Lengkapi Wilayah, OPD, dan Password!");
-				return;
-			}
-			btn.innerHTML = "Memeriksa...";
-			btn.disabled = true;
-			try {
-				// 1. Proses Login
-				const resLogin = await fetch('/api/api?action=login', {
-					method: 'POST',
-					body: JSON.stringify({ username: kab, password: pass }) 
-				});
-				const resultLogin = await resLogin.json();
-
-				if(resultLogin.success) {
-					// 2. Jika sukses, ambil soal berdasarkan OPD user
-					btn.innerHTML = "Memuat Data...";
-                    // Kita gunakan OPD dari input user
-					const resSoal = await fetch(`/api/api?action=get_soal&kabupaten=${encodeURIComponent(kab)}&opd=${encodeURIComponent(opd)}`);
-					const resultSoal = await resSoal.json();
-
-					if(resultSoal.success && resultSoal.data.length > 0) {
-                        loadedQuestions = resultSoal.data;
-						renderQuestions(resultSoal.data);
-						
-						// Animasi transisi halaman
-						const loginSection = document.getElementById('login-section');
-						loginSection.classList.add('opacity-0', 'pointer-events-none');
-						setTimeout(() => {
-							loginSection.style.display = 'none';
-							document.getElementById('app-header').classList.remove('hidden');
-							document.getElementById('main-container').classList.remove('hidden');
-							setTimeout(() => {
-								document.getElementById('app-header').classList.remove('opacity-0');
-								document.getElementById('main-container').classList.remove('opacity-0');
-							}, 50);
-						}, 500);
-					} else {
-						alert("Login berhasil, namun tidak ada data pertanyaan untuk OPD ini.");
-						btn.innerHTML = originalText;
-						btn.disabled = false;
-					}
-				} else {
-					alert("Login Gagal! Periksa Password.");
-					btn.innerHTML = originalText;
-					btn.disabled = false;
-				}
-			} catch (e) {
-				alert("Kesalahan koneksi.");
-				console.error(e);
-				btn.innerHTML = originalText;
-				btn.disabled = false;
-			}
-		}
-
-		// --- RENDER UI (Sangat penting: Style UI harus sama persis) ---
-		function renderQuestions(questions) {
-			const container = document.getElementById('dynamic-questions-container');
-			container.innerHTML = ''; // Reset container
-
-			questions.forEach((q, index) => {
-				// Buat ID unik untuk setiap elemen berdasarkan ID pertanyaan
-				const qId = q.id; 
-				
-				// Render Judul Section jika ada
-				let sectionHeader = '';
-				if(q.judul_section) {
-					sectionHeader = `
-						<div class="mb-4 border-b pb-2 border-slate-200">
-							<h2 class="text-lg md:text-xl font-bold text-slate-800">${q.judul_section}</h2>
-							${q.sub_judul ? `<p class="text-sm text-slate-500">${q.sub_judul}</p>` : ''}
-						</div>
-					`;
-				}
-
-				// Render List Bukti Dukung
-				let buktiHtml = '';
-				if(q.bukti_dukung && q.bukti_dukung.length > 0) {
-					const listItems = q.bukti_dukung.map(b => 
-						`<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">${b}</li>`
-					).join('');
-					
-					buktiHtml = `
-						<div class="mb-4">
-							<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-								Bukti Dukung Diperlukan:
-							</h3>
-							<ul class="space-y-2">${listItems}</ul>
-						</div>
-					`;
-				}
-
-				// Render Tombol Upload (Hanya jika butuh_file === true)
-				let uploadHtml = '';
-				if(q.butuh_file) {
-					uploadHtml = `
-						<div class="relative mt-4">
-							<input type="file" id="file-upload-${qId}" class="hidden" multiple onchange="handleFileUpload(this, '${qId}')">
-							<label for="file-upload-${qId}" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-sm px-5 py-3.5 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm">
-								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-								UPLOAD FILE
-							</label>
-						</div>
-						<div id="file-preview-${qId}" class="hidden space-y-2 mt-3"></div>
-						
-						<div class="mt-4 pt-4 border-t border-slate-200/60">
-							<textarea id="alasan-${qId}" rows="3" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Tuliskan alasan atau kendala di sini jika dokumen Bukti Dukung tidak tersedia atau belum lengkap..."></textarea>
-						</div>
-					`;
-				}
-
-				// HTML Item Pertanyaan Full
-				const itemHtml = `
-					<div class="question-item space-y-5" data-id="${qId}">
-						${sectionHeader}
-						
-						<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100 space-y-4">
-							<div>
-								<label class="block text-sm md:text-lg font-medium text-slate-800 leading-relaxed">
-									${index + 1}. ${q.pertanyaan}
-								</label>
-							</div>
-							<div class="grid grid-cols-1 gap-4">
-								<div class="relative group w-full" id="dropdown-${qId}">
-									<input type="hidden" name="jawaban_dropdown" id="input-jawaban-${qId}">
-									<div class="relative">
-										<button type="button" onclick="toggleDropdown('dropdown-${qId}')" class="w-full bg-white border border-slate-200 text-slate-500 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 text-left flex justify-between items-center transition-all hover:bg-slate-50 outline-none shadow-sm">
-											<span class="truncate dropdown-label font-medium">Pilih Jawaban</span>
-											<svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-										</button>
-									</div>
-									<div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
-										<div class="py-1">
-											<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-green-50 hover:text-green-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-${qId}', 'Ya', 'Ya, Sudah Sesuai')">
-												<span class="font-medium">Ya, Sudah Sesuai</span>
-											</div>
-											<div class="cursor-pointer px-4 py-3 text-sm md:text-base text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-between" onclick="selectOption('dropdown-${qId}', 'Tidak', 'Tidak / Belum Sesuai')">
-												<span class="font-medium">Tidak / Belum Sesuai</span>
-											</div>
-										</div>
-									</div>
-								</div>
-								<div class="relative w-full">
-									<textarea id="penjelasan-${qId}" rows="4" class="w-full bg-white border border-slate-200 text-slate-800 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Silakan tambahkan catatan atau penjelasan detail di sini jika pilihan jawaban dirasa belum cukup..."></textarea>
-								</div>
-							</div>
-						</div>
-
-						${q.butuh_file ? `<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100">
-							${buktiHtml}
-							${uploadHtml}
-						</div>` : ''}
-					</div>
-                    <hr class="border-slate-200">
-				`;
-
-				container.insertAdjacentHTML('beforeend', itemHtml);
-			});
-		}
-
-		// --- FUNGSI PENDUKUNG ---
-		function updateTime() {
-			const now = new Date();
-			const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-			document.getElementById('clock-date').textContent = now.toLocaleDateString('id-ID', dateOpts);
-			document.getElementById('clock-time').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
-		}
-		
-		function toggleDropdown(id) {
-            // Tutup semua dropdown lain dulu biar rapi
-            document.querySelectorAll('.dropdown-menu').forEach(menu => {
-                if(menu.parentElement.id !== id) menu.classList.add('hidden');
-            });
-			const menu = document.getElementById(id).querySelector('.dropdown-menu');
-			menu.classList.toggle('hidden');
-		}
-		
-		function selectOption(id, val, label) {
-			document.getElementById(id).querySelector('input').value = val;
-			document.querySelector(`#${id} .dropdown-label`).textContent = label;
-			document.getElementById(id).querySelector('.dropdown-menu').classList.add('hidden');
-		}
-		
-		function renderDropdown(id, items, title) {
-			const container = document.querySelector(`#${id} .custom-scroll`);
-			container.innerHTML = `<div class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">${title}</div>`;
-			items.forEach(item => {
-				container.innerHTML += `
-                    <div class="option-item cursor-pointer px-4 py-2.5 text-sm md:text-base text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-between group-item" 
-                         onclick="selectOption('${id}', '${item.value}', '${item.label}')">
-                        <span>${item.label}</span>
-                    </div>`;
-			});
-			document.querySelector(`#${id} .dropdown-label`).textContent = id === 'dropdown-kabupaten' ? 'Pilih Wilayah' : 'Pilih OPD';
-		}
-
-		// --- LOGIKA FILE UPLOAD PER PERTANYAAN ---
-		function handleFileUpload(input, qId) {
-			const previewList = document.getElementById(`file-preview-${qId}`);
-			previewList.innerHTML = '';
+    // --- FUNGSI UTAMA (Dipanggil saat halaman loading) ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Panggil data dropdown
+        try {
+            const res = await fetch('/api/api?action=get_data');
+            // Cek jika response error
+            if (!res.ok) throw new Error("Gagal mengambil data server");
             
-            // Inisialisasi array jika belum ada
-            if(!fileStorage[qId]) fileStorage[qId] = [];
-
-			if(input.files && input.files.length > 0) {
-                // Tambahkan file baru ke storage
-                Array.from(input.files).forEach(f => fileStorage[qId].push(f));
-            }
+            const data = await res.json();
             
-            // Render ulang dari storage
-            if (fileStorage[qId].length > 0) {
-				previewList.classList.remove('hidden');
-				fileStorage[qId].forEach((file, idx) => {
-					const fileItem = document.createElement('div');
-					fileItem.className = 'flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm animate-fade-in gap-3';
-					fileItem.innerHTML = `
-                        <div class="flex-1 min-w-0">
-                            <p class="truncate text-sm font-medium text-slate-700" title="${file.name}">${file.name}</p>
-                        </div>
-                        <div class="flex-none">
-                            <button type="button" onclick="removeFile('${qId}', ${idx})" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
-                        </div>
-                    `;
-					previewList.appendChild(fileItem);
-				});
-			} else {
-				previewList.classList.add('hidden');
-			}
-		}
-
-        function removeFile(qId, index) {
-            fileStorage[qId].splice(index, 1);
-            // Render ulang preview manual (simulate change event logic)
-            const previewList = document.getElementById(`file-preview-${qId}`);
-            previewList.innerHTML = '';
-            if (fileStorage[qId].length > 0) {
-                fileStorage[qId].forEach((file, idx) => {
-					const fileItem = document.createElement('div');
-					fileItem.className = 'flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm animate-fade-in gap-3';
-					fileItem.innerHTML = `
-                        <div class="flex-1 min-w-0">
-                            <p class="truncate text-sm font-medium text-slate-700" title="${file.name}">${file.name}</p>
-                        </div>
-                        <div class="flex-none">
-                            <button type="button" onclick="removeFile('${qId}', ${idx})" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide transition-colors uppercase">HAPUS</button>
-                        </div>
-                    `;
-					previewList.appendChild(fileItem);
-				});
+            // Render Dropdown jika data ada
+            if(data.kabupaten && data.kabupaten.length > 0) {
+                renderDropdown('dropdown-kabupaten', data.kabupaten, 'Daftar Wilayah');
             } else {
-                previewList.classList.add('hidden');
+                console.warn("Data Kabupaten Kosong");
             }
+
+            if(data.opd && data.opd.length > 0) {
+                renderDropdown('dropdown-opd', data.opd, 'Unit Kerja');
+            } else {
+                console.warn("Data OPD Kosong");
+            }
+
+        } catch (e) {
+            console.error("Gagal load data master:", e);
+            alert("Gagal terhubung ke server. Coba refresh halaman.");
+        }
+    });
+
+    // --- FUNGSI INTERAKSI UI (Harus di Global Scope) ---
+    
+    // 1. Fungsi Buka/Tutup Dropdown
+    function toggleDropdown(id) {
+        const dropdown = document.getElementById(id);
+        if(!dropdown) return;
+        
+        const menu = dropdown.querySelector('.dropdown-menu');
+        
+        // Tutup dropdown lain yang sedang terbuka
+        document.querySelectorAll('.dropdown-menu').forEach(m => {
+            if (m !== menu) m.classList.add('hidden');
+        });
+
+        // Toggle dropdown ini
+        menu.classList.toggle('hidden');
+    }
+
+    // 2. Event Klik di Luar untuk Menutup Dropdown
+    window.onclick = function(event) {
+        if(!event.target.closest('.relative.group')) {
+            document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+        }
+    }
+
+    // 3. Fungsi Pilih Opsi Dropdown
+    function selectOption(id, val, label) {
+        const input = document.getElementById(id).querySelector('input');
+        const labelSpan = document.getElementById(id).querySelector('.dropdown-label');
+        
+        if(input) input.value = val;
+        if(labelSpan) labelSpan.textContent = label;
+        
+        // Tutup menu setelah memilih
+        const menu = document.getElementById(id).querySelector('.dropdown-menu');
+        if(menu) menu.classList.add('hidden');
+    }
+
+    // 4. Render Isi Dropdown (Membuat HTML list)
+    function renderDropdown(id, items, title) {
+        const container = document.querySelector(`#${id} .custom-scroll`);
+        if(!container) return;
+
+        let htmlContent = `<div class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">${title}</div>`;
+        
+        items.forEach(item => {
+            htmlContent += `
+                <div class="option-item cursor-pointer px-4 py-2.5 text-sm md:text-base text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-between group-item" 
+                     onclick="selectOption('${id}', '${item.value}', '${item.label}')">
+                    <span>${item.label}</span>
+                </div>`;
+        });
+        
+        container.innerHTML = htmlContent;
+    }
+
+    // --- FUNGSI LOGIN ---
+    async function handleLogin(event) {
+        event.preventDefault();
+        const kab = document.getElementById('input-kabupaten').value;
+        const opd = document.getElementById('input-opd').value;
+        const pass = document.getElementById('password').value;
+        const btn = event.target.querySelector('button');
+        const originalText = btn.innerHTML;
+        
+        if(!kab || !opd || !pass) {
+            alert("Mohon lengkapi Wilayah, OPD, dan Password!");
+            return;
         }
 
-		// --- KIRIM DATA ---
-		async function kirimJawaban() {
-			const btn = document.querySelector('button[onclick="kirimJawaban()"]');
-			const originalText = btn.innerHTML;
-            
-            // Loop semua pertanyaan yang ada di layar
-            const payload = {
-                kabupaten: document.getElementById('input-kabupaten').value,
-                opd: document.getElementById('input-opd').value,
-                data_jawaban: []
-            };
+        btn.innerHTML = "Memeriksa...";
+        btn.disabled = true;
 
-            // Validasi: Cek apakah ada pertanyaan
-            if(loadedQuestions.length === 0) {
-                alert("Tidak ada data untuk dikirim.");
-                return;
-            }
+        try {
+            // Login Request
+            const resLogin = await fetch('/api/api?action=login', {
+                method: 'POST',
+                body: JSON.stringify({ username: kab, password: pass }) 
+            });
+            const resultLogin = await resLogin.json();
 
-            let allFilled = true;
-
-            for (const q of loadedQuestions) {
-                const qId = q.id;
-                const jawabanVal = document.getElementById(`input-jawaban-${qId}`).value;
-                const penjelasanVal = document.getElementById(`penjelasan-${qId}`).value || "-";
-                const alasanVal = document.getElementById(`alasan-${qId}`) ? document.getElementById(`alasan-${qId}`).value : "-";
+            if(resultLogin.success) {
+                // Login Sukses -> Ambil Soal
+                btn.innerHTML = "Memuat Data...";
                 
-                if(!jawabanVal) {
-                    allFilled = false;
-                    // Scroll ke elemen yang belum diisi
-                    document.getElementById(`dropdown-${qId}`).scrollIntoView({behavior: "smooth", block: "center"});
-                    alert(`Mohon pilih jawaban untuk pertanyaan: "${q.pertanyaan.substring(0, 20)}..."`);
-                    break;
-                }
-
-                // Proses Files
-                const filesData = [];
-                const files = fileStorage[qId] || [];
-                for(let file of files) {
-                    if(file.size > 5 * 1024 * 1024) {
-                        alert(`File ${file.name} terlalu besar (Max 5MB)`);
-                        return;
-                    }
-                    const base64 = await toBase64(file);
-                    filesData.push({
-                        name: file.name,
-                        type: file.type,
-                        content: base64
-                    });
-                }
-
-                payload.data_jawaban.push({
-                    id_pertanyaan: qId,
-                    pertanyaan: q.pertanyaan,
-                    jawaban: jawabanVal,
-                    penjelasan: penjelasanVal,
-                    alasan: alasanVal,
-                    files: filesData
+                const params = new URLSearchParams({
+                    action: 'get_soal',
+                    kabupaten: kab,
+                    opd: opd
                 });
+
+                const resSoal = await fetch(`/api/api?${params.toString()}`);
+                const resultSoal = await resSoal.json();
+
+                if(resultSoal.success && resultSoal.data.length > 0) {
+                    loadedQuestions = resultSoal.data; // Simpan ke variabel global
+                    renderQuestions(loadedQuestions);  // Gambar soal ke layar
+                    
+                    // Animasi Pindah Halaman
+                    const loginSection = document.getElementById('login-section');
+                    loginSection.classList.add('opacity-0', 'pointer-events-none');
+                    setTimeout(() => {
+                        loginSection.style.display = 'none';
+                        document.getElementById('app-header').classList.remove('hidden');
+                        document.getElementById('main-container').classList.remove('hidden');
+                        setTimeout(() => {
+                            document.getElementById('app-header').classList.remove('opacity-0');
+                            document.getElementById('main-container').classList.remove('opacity-0');
+                        }, 50);
+                    }, 500);
+
+                } else {
+                    alert("Login berhasil, namun TIDAK ADA pertanyaan untuk OPD ini di database.");
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } else {
+                alert("Login Gagal! Password atau Username salah.");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        } catch (e) {
+            alert("Terjadi kesalahan koneksi: " + e.message);
+            console.error(e);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    // --- FUNGSI RENDER SOAL (HTML Generator) ---
+    function renderQuestions(questions) {
+        const container = document.getElementById('dynamic-questions-container');
+        if(!container) return;
+        
+        container.innerHTML = ''; // Bersihkan container
+
+        questions.forEach((q, index) => {
+            const qId = q.id; 
+
+            // Header Section (Judul Besar)
+            let sectionHeader = '';
+            if(q.judul_section) {
+                sectionHeader = `
+                    <div class="mb-4 border-b pb-2 border-slate-200 mt-8 first:mt-0">
+                        <h2 class="text-lg md:text-xl font-bold text-slate-800">${q.judul_section}</h2>
+                        ${q.sub_judul ? `<p class="text-sm text-slate-500">${q.sub_judul}</p>` : ''}
+                    </div>
+                `;
             }
 
-            if(!allFilled) return;
+            // List Bukti Dukung
+            let buktiHtml = '';
+            if(q.bukti_dukung && q.bukti_dukung.length > 0) {
+                const listItems = q.bukti_dukung.map(b => 
+                    `<li class="block text-sm text-slate-700 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm font-medium">• ${b}</li>`
+                ).join('');
+                
+                buktiHtml = `
+                    <div class="mb-4">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            Dokumen Bukti Dukung:
+                        </h3>
+                        <ul class="space-y-2">${listItems}</ul>
+                    </div>
+                `;
+            }
 
-			btn.innerHTML = "Mengirim Data...";
-			btn.disabled = true;
+            // Upload Area (Hanya jika butuh_file = true)
+            let uploadHtml = '';
+            if(q.butuh_file) {
+                uploadHtml = `
+                    <div class="relative mt-4">
+                        <input type="file" id="file-upload-${qId}" class="hidden" multiple onchange="handleFileUpload(this, '${qId}')">
+                        <label for="file-upload-${qId}" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-sm px-5 py-3.5 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm">
+                            UPLOAD FILE
+                        </label>
+                    </div>
+                    <div id="file-preview-${qId}" class="hidden space-y-2 mt-3"></div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-200/60">
+                        <textarea id="alasan-${qId}" rows="2" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 outline-none transition-all placeholder:text-slate-400 resize-none shadow-sm" placeholder="Catatan jika file tidak lengkap..."></textarea>
+                    </div>
+                `;
+            }
 
-			try {
-				const res = await fetch('/api/api?action=submit', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(payload)
-				});
-				if(res.ok) {
-					alert("✅ Semua Data Berhasil Disimpan!");
-					location.reload();
-				} else {
-					const err = await res.json();
-					throw new Error(err.error || "Gagal menyimpan.");
-				}
-			} catch (e) {
-				alert("❌ Error: " + e.message);
-			} finally {
-				btn.innerHTML = originalText;
-				btn.disabled = false;
-			}
-		}
+            // HTML Structure
+            const html = `
+                <div class="question-item space-y-5" data-id="${qId}">
+                    ${sectionHeader}
+                    <div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100 space-y-4">
+                        <div>
+                            <label class="block text-sm md:text-lg font-medium text-slate-800 leading-relaxed">
+                                ${index + 1}. ${q.pertanyaan}
+                            </label>
+                        </div>
+                        
+                        <div class="relative group w-full" id="dropdown-${qId}">
+                            <input type="hidden" name="jawaban_dropdown" id="input-jawaban-${qId}">
+                            <div class="relative">
+                                <button type="button" onclick="toggleDropdown('dropdown-${qId}')" class="w-full bg-white border border-slate-200 text-slate-500 text-sm md:text-base rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-slate-400 block p-3.5 text-left flex justify-between items-center transition-all hover:bg-slate-50 outline-none shadow-sm">
+                                    <span class="truncate dropdown-label font-medium">Pilih Jawaban</span>
+                                    <svg class="w-4 h-4 text-slate-400 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                            </div>
+                            <div class="dropdown-menu absolute w-full bg-white mt-2 rounded-xl border border-slate-100 shadow-xl overflow-hidden z-50 hidden">
+                                <div class="py-1">
+                                    <div class="cursor-pointer px-4 py-3 text-sm text-slate-600 hover:bg-green-50 hover:text-green-700 flex items-center" onclick="selectOption('dropdown-${qId}', 'Ya', 'Ya, Sudah Sesuai')">Ya, Sudah Sesuai</div>
+                                    <div class="cursor-pointer px-4 py-3 text-sm text-slate-600 hover:bg-red-50 hover:text-red-700 flex items-center" onclick="selectOption('dropdown-${qId}', 'Tidak', 'Tidak / Belum Sesuai')">Tidak / Belum Sesuai</div>
+                                </div>
+                            </div>
+                        </div>
 
-		const toBase64 = file => new Promise((r, j) => {
-			const reader = new FileReader();
-			reader.readAsDataURL(file);
-			reader.onload = () => r(reader.result);
-			reader.onerror = j;
-		});
+                        <textarea id="penjelasan-${qId}" rows="2" class="w-full bg-white border border-slate-200 text-slate-800 text-sm rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-slate-400" placeholder="Penjelasan detail..."></textarea>
+                    </div>
 
-		window.onclick = function(event) {
-			if(!event.target.closest('.relative.group')) {
-				document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.add('hidden'));
-			}
-		}
-	</script>
+                    ${q.butuh_file ? `<div class="bg-slate-50 rounded-xl p-4 md:p-5 border border-slate-100">${buktiHtml}${uploadHtml}</div>` : ''}
+                </div>
+                <hr class="border-slate-200 last:hidden">
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    // --- MANAJEMEN FILE ---
+    function handleFileUpload(input, qId) {
+        const previewList = document.getElementById(`file-preview-${qId}`);
+        if(!fileStorage[qId]) fileStorage[qId] = [];
+        
+        if(input.files) {
+            Array.from(input.files).forEach(f => fileStorage[qId].push(f));
+        }
+        renderFilePreview(qId);
+    }
+
+    function removeFile(qId, idx) {
+        fileStorage[qId].splice(idx, 1);
+        renderFilePreview(qId);
+    }
+
+    function renderFilePreview(qId) {
+        const previewList = document.getElementById(`file-preview-${qId}`);
+        previewList.innerHTML = '';
+        
+        if(fileStorage[qId].length > 0) {
+            previewList.classList.remove('hidden');
+            fileStorage[qId].forEach((file, idx) => {
+                previewList.innerHTML += `
+                    <div class="flex items-center justify-between p-2 bg-white rounded border border-slate-200 text-xs">
+                        <span class="truncate max-w-[70%]">${file.name}</span>
+                        <button onclick="removeFile('${qId}', ${idx})" class="text-red-500 font-bold hover:underline">HAPUS</button>
+                    </div>`;
+            });
+        } else {
+            previewList.classList.add('hidden');
+        }
+    }
+
+    // --- KIRIM JAWABAN ---
+    async function kirimJawaban() {
+        if(loadedQuestions.length === 0) return;
+
+        const btn = document.querySelector('button[onclick="kirimJawaban()"]');
+        const originalText = btn.innerHTML;
+        
+        // Siapkan Payload
+        const payload = {
+            kabupaten: document.getElementById('input-kabupaten').value,
+            opd: document.getElementById('input-opd').value,
+            data_jawaban: []
+        };
+
+        let isValid = true;
+
+        for(const q of loadedQuestions) {
+            const jaw = document.getElementById(`input-jawaban-${q.id}`).value;
+            if(!jaw) {
+                isValid = false;
+                alert(`Pertanyaan "${q.pertanyaan}" belum dijawab!`);
+                break;
+            }
+
+            // Convert Files to Base64
+            const fileData = [];
+            const files = fileStorage[q.id] || [];
+            for(const f of files) {
+                if(f.size > 5000000) { // 5MB limit
+                    alert(`File ${f.name} terlalu besar!`);
+                    return;
+                }
+                const b64 = await toBase64(f);
+                fileData.push({ name: f.name, type: f.type, content: b64 });
+            }
+
+            payload.data_jawaban.push({
+                id_pertanyaan: q.id,
+                pertanyaan: q.pertanyaan,
+                jawaban: jaw,
+                penjelasan: document.getElementById(`penjelasan-${q.id}`).value || '-',
+                alasan: document.getElementById(`alasan-${q.id}`)?.value || '-',
+                files: fileData
+            });
+        }
+
+        if(!isValid) return;
+
+        btn.innerHTML = "Mengirim...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/api?action=submit', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            
+            if(res.ok) {
+                alert("Data Berhasil Disimpan!");
+                location.reload();
+            } else {
+                throw new Error("Gagal menyimpan data.");
+            }
+        } catch(e) {
+            alert("Error: " + e.message);
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    const toBase64 = file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('clock-date').textContent = now.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+        document.getElementById('clock-time').textContent = now.toLocaleTimeString('id-ID') + ' WIB';
+    }
+</script>
 </body>
 </html>
