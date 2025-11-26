@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Membersihkan format private key dari karakter baris baru (\n)
+    // Bersihkan private key dari karakter baris baru (\n)
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -21,7 +21,7 @@ const sheets = google.sheets({ version: 'v4', auth: authClient });
 const spreadsheetId = process.env.SPREADSHEET_ID;
 const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// --- 2. HELPER UPLOAD ---
+// --- 2. HELPER UPLOAD (BAGIAN INI YANG KITA PERBAIKI) ---
 async function uploadToDrive(fileData, folderId) {
     try {
         if (!authClient) throw new Error("Auth belum siap");
@@ -34,14 +34,25 @@ async function uploadToDrive(fileData, folderId) {
         const bufferStream = new stream.PassThrough();
         bufferStream.end(buffer);
 
+        // --- UPLOAD REQUEST ---
         const response = await drive.files.create({
-            requestBody: { name: fileData.name, parents: folderId ? [folderId] : [] },
-            media: { mimeType: fileData.type, body: bufferStream },
-            fields: 'webViewLink'
+            requestBody: { 
+                name: fileData.name, 
+                // Pastikan folderId dibungkus array
+                parents: folderId ? [folderId] : [] 
+            },
+            media: { 
+                mimeType: fileData.type, 
+                body: bufferStream 
+            },
+            // === TAMBAHAN PENTING UNTUK MENGATASI ERROR QUOTA ===
+            supportsAllDrives: true, 
+            fields: 'id, webViewLink'
         });
+
         return response.data.webViewLink;
     } catch (error) {
-        console.error("Upload Error:", error);
+        console.error("Gagal Upload Detail:", error.message); // Log error detail
         return "Gagal Upload";
     }
 }
@@ -61,7 +72,7 @@ module.exports = async (req, res) => {
         if (!authClient) return res.status(500).json({ error: "Auth Gagal. Cek Env Variables." });
         await authClient.authorize();
 
-        // === ACTION: GET DATA (Dropdown) ===
+        // === ACTION: GET DATA ===
         if (action === 'get_data') {
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
@@ -100,11 +111,9 @@ module.exports = async (req, res) => {
             return res.status(401).json({ success: false });
         }
 
-        // === ACTION: GET SOAL (UPDATE UTAMA DISINI) ===
+        // === ACTION: GET SOAL ===
         else if (action === 'get_soal') {
             const { kabupaten, opd } = req.query;
-            
-            // Ambil semua kolom A sampai L
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'master_pertanyaan!A2:L',
@@ -119,21 +128,15 @@ module.exports = async (req, res) => {
                            rowOpd === opd.trim().toLowerCase();
                 })
                 .map(r => {
-                    // MAPPING KOLOM SESUAI PERMINTAAN ANDA:
-                    // 0:no_index, 1:kab, 2:opd, 3:id, 4:tanya, 5:tipe
-                    // 6:data_permintaan, 7:jml_file, 8:file_upload, 9:input_alasan, 10:judul, 11:sub
-                    
-                    // Logika "Ya"/"Tidak" dibuat tidak sensitif huruf besar/kecil
                     const isUpload = (r[8] || '').trim().toLowerCase() === 'ya';
                     const isWajibAlasan = (r[9] || '').trim().toLowerCase() === 'ya';
-
                     return {
                         id: r[3],
                         pertanyaan: r[4],
-                        tipe: r[5],  // "pilihan" atau "teks"
-                        bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean), // data_permintaan
-                        butuh_file: isUpload,  // file_upload (Boolean)
-                        wajib_alasan: isWajibAlasan, // input_alasan (Boolean)
+                        tipe: r[5],
+                        bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean),
+                        butuh_file: isUpload,
+                        wajib_alasan: isWajibAlasan,
                         judul_section: r[10] || '',
                         sub_judul: r[11] || ''
                     };
@@ -147,14 +150,15 @@ module.exports = async (req, res) => {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kabupaten, opd, data_jawaban } = body;
             const rowsToSave = [];
-            
             const idTransaksi = 'TRX-' + Date.now() + Math.floor(Math.random() * 1000);
 
             if (data_jawaban && Array.isArray(data_jawaban)) {
                 for (const item of data_jawaban) {
                     let linkFiles = [];
+                    // Upload File
                     if (item.files && item.files.length > 0) {
                         for (const f of item.files) {
+                            // PANGGIL FUNGSI UPLOAD
                             const link = await uploadToDrive(f, driveFolderId);
                             linkFiles.push(link);
                         }
