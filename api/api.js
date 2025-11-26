@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    // Fix: Mengatasi masalah spasi/baris baru pada Private Key di Vercel
+    // Membersihkan format private key agar aman di Vercel
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -62,7 +62,7 @@ module.exports = async (req, res) => {
         await authClient.authorize();
 
         // =========================================================
-        // ACTION 1: GET DATA (Untuk Dropdown Login)
+        // ACTION 1: GET DATA (Dropdown Login)
         // Sumber: Tab 'auth' Kolom A (Kabupaten) & B (OPD)
         // =========================================================
         if (action === 'get_data') {
@@ -83,7 +83,7 @@ module.exports = async (req, res) => {
 
         // =========================================================
         // ACTION 2: LOGIN
-        // Sumber: Tab 'auth' Kolom A (User), B (OPD), C (Password)
+        // Sumber: Tab 'auth' -> A(User), B(OPD), C(Pass)
         // =========================================================
         else if (action === 'login') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -141,19 +141,22 @@ module.exports = async (req, res) => {
 
         // =========================================================
         // ACTION 4: SUBMIT
-        // Tujuan: Tab 'database' (Ada ID Transaksi di Kolom A)
+        // Tujuan: Tab 'database'
+        // Urutan: id_transaksi, time_stamp, id_pertanyaan, pertanyaan, 
+        //         kabupaten, opd, jawaban_pilihan, jawaban_teks, alasan, link_upload
         // =========================================================
         else if (action === 'submit') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kabupaten, opd, data_jawaban } = body;
             const rowsToSave = [];
 
-            // Generate ID Transaksi Unik (Misal: TRX-AngkaAcak)
+            // Generate ID Transaksi Unik satu kali untuk satu kali submit
             const idTransaksi = 'TRX-' + Date.now() + Math.floor(Math.random() * 1000);
 
             if (data_jawaban && Array.isArray(data_jawaban)) {
                 for (const item of data_jawaban) {
                     let linkFiles = [];
+                    // Upload File jika ada
                     if (item.files && item.files.length > 0) {
                         for (const f of item.files) {
                             const link = await uploadToDrive(f, driveFolderId);
@@ -161,18 +164,18 @@ module.exports = async (req, res) => {
                         }
                     }
                     
-                    // URUTAN SIMPAN BARU (Ada id_transaksi di depan):
+                    // PENYESUAIAN URUTAN KOLOM DATABASE:
                     rowsToSave.push([
-                        idTransaksi, // Kolom A
-                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }), // Kolom B (Waktu)
-                        kabupaten, 
-                        opd, 
-                        item.id_pertanyaan, 
-                        item.pertanyaan,
-                        item.jawaban, 
-                        item.penjelasan, 
-                        item.alasan, 
-                        linkFiles.join(',\n')
+                        idTransaksi,                                                       // 1. id_transaksi
+                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),  // 2. time_stamp
+                        item.id_pertanyaan,                                                // 3. id_pertanyaan
+                        item.pertanyaan,                                                   // 4. pertanyaan
+                        kabupaten,                                                         // 5. kabupaten
+                        opd,                                                               // 6. opd
+                        item.jawaban,                                                      // 7. jawaban_pilihan
+                        item.penjelasan,                                                   // 8. jawaban_teks
+                        item.alasan,                                                       // 9. alasan
+                        linkFiles.join(',\n')                                              // 10. link_upload
                     ]);
                 }
                 
