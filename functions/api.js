@@ -1,65 +1,59 @@
 const { google } = require('googleapis');
-const stream = require('stream'); // Module bawaan Node.js untuk handle upload file
+const stream = require('stream');
 
-// 1. SETUP AUTH & CONFIG
-let credentials;
+// --- 1. SETUP AUTHENTICATION (Lebih Aman) ---
+let authClient;
 try {
-    credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-} catch (e) {
-    console.error("Gagal membaca GOOGLE_CREDENTIALS. Pastikan format JSON benar.", e);
-    credentials = {};
+    // Membaca Environment Variable GOOGLE_CREDENTIALS
+    const rawCreds = process.env.GOOGLE_CREDENTIALS;
+    if (!rawCreds) throw new Error("GOOGLE_CREDENTIALS tidak ditemukan di Environment Variables.");
+
+    const credentials = JSON.parse(rawCreds);
+    
+    authClient = new google.auth.JWT(
+        credentials.client_email,
+        null,
+        credentials.private_key,
+        ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    );
+} catch (error) {
+    console.error("FATAL ERROR: Gagal setup Google Auth.", error.message);
+    // Kita biarkan authClient null, nanti akan dicek di handler
 }
 
-const auth = new google.auth.JWT(
-    credentials.client_email,
-    null,
-    credentials.private_key,
-    [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive'
-    ]
-);
-
-const sheets = google.sheets({ version: 'v4', auth });
-const drive = google.drive({ version: 'v3', auth });
+const sheets = google.sheets({ version: 'v4', auth: authClient });
+const drive = google.drive({ version: 'v3', auth: authClient });
 
 const spreadsheetId = process.env.SPREADSHEET_ID;
-// ID Folder Drive untuk menyimpan bukti dukung (Pastikan variabel ini ada di Netlify)
-const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID; 
+const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// --- HELPER FUNCTION: UPLOAD KE DRIVE ---
+// --- 2. FUNGSI UPLOAD HELPER ---
 async function uploadToDrive(fileData, folderId) {
     try {
-        // fileData.content adalah base64 string (data:image/png;base64,.....)
-        // Kita perlu membuang header "data:xxx;base64,"
-        const base64Data = fileData.content.split(',')[1]; 
+        if (!authClient) throw new Error("Auth gagal.");
+        const base64Data = fileData.content.split(',')[1];
         const buffer = Buffer.from(base64Data, 'base64');
-        
         const bufferStream = new stream.PassThrough();
         bufferStream.end(buffer);
 
         const response = await drive.files.create({
             requestBody: {
                 name: fileData.name,
-                parents: folderId ? [folderId] : [], // Simpan di folder khusus jika ada ID-nya
+                parents: folderId ? [folderId] : [],
             },
-            media: {
-                mimeType: fileData.type,
-                body: bufferStream
-            },
-            fields: 'id, webViewLink' // Kita minta ID dan Link file
+            media: { mimeType: fileData.type, body: bufferStream },
+            fields: 'webViewLink'
         });
-
-        return response.data.webViewLink; // Kembalikan Link File
+        return response.data.webViewLink;
     } catch (error) {
-        console.error("Gagal upload file:", fileData.name, error);
-        return `Error Upload: ${fileData.name}`;
+        console.error("Upload Error:", error);
+        return "Gagal Upload";
     }
 }
 
-// --- MAIN HANDLER ---
+// --- 3. MAIN API HANDLER ---
 module.exports = async (req, res) => {
-    // Setup CORS
+    // Setup CORS agar tidak error saat diakses browser
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -69,15 +63,44 @@ module.exports = async (req, res) => {
         return;
     }
 
+    // Cek Kesiapan Auth
+    if (!authClient) {
+        return res.status(500).json({ error: "Server Error: Konfigurasi Auth Gagal." });
+    }
+
     const { action } = req.query;
 
     try {
-        await auth.authorize();
+        await authClient.authorize(); // Pastikan token aktif
 
-        // ---------------------------------------------------------
-        // ACTION: LOGIN
-        // ---------------------------------------------------------
-        if (action === 'login') {
+        // === ACTION: GET DATA (Untuk Dropdown Login) ===
+        if (action === 'get_data') {
+            // Ambil kolom C (Kabupaten) dan D (OPD) dari sheet 'auth'
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range: 'auth!C2:D', 
+            });
+
+            const rows = response.data.values || [];
+            
+            // Filter data unik dan buang yang kosong
+            const kabSet = new Set();
+            const opdSet = new Set();
+
+            rows.forEach(row => {
+                if (row[0]) kabSet.add(row[0].trim());
+                if (row[1]) opdSet.add(row[1].trim());
+            });
+
+            // Ubah ke format array objek untuk frontend
+            const kabs = Array.from(kabSet).sort().map(k => ({ label: k, value: k }));
+            const opds = Array.from(opdSet).sort().map(o => ({ label: o, value: o }));
+
+            return res.status(200).json({ kabupaten: kabs, opd: opds });
+        }
+
+        // === ACTION: LOGIN ===
+        else if (action === 'login') {
             const body = req.body ? JSON.parse(req.body) : {};
             const { username, password } = body;
 
@@ -87,7 +110,8 @@ module.exports = async (req, res) => {
             });
 
             const rows = response.data.values || [];
-            const user = rows.find(row => row[0] == username && row[1] == password);
+            // Cocokkan username (A) dan password (B)
+            const user = rows.find(r => r[0] == username && r[1] == password);
 
             if (user) {
                 return res.status(200).json({ 
@@ -95,91 +119,63 @@ module.exports = async (req, res) => {
                     kabupaten: user[2], 
                     opd: user[3] 
                 });
-            } else {
-                return res.status(401).json({ success: false, message: 'Login gagal' });
             }
+            return res.status(401).json({ success: false, message: 'Login Gagal' });
         }
 
-        // ---------------------------------------------------------
-        // ACTION: GET_DATA (Dropdown Awal)
-        // ---------------------------------------------------------
-        else if (action === 'get_data') {
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId,
-                range: 'auth!C2:D', 
-            });
-            const rows = response.data.values || [];
-            const kabs = [...new Set(rows.map(r => r[0]).filter(Boolean))].map(k => ({label: k, value: k}));
-            const opds = [...new Set(rows.map(r => r[1]).filter(Boolean))].map(o => ({label: o, value: o}));
-
-            return res.status(200).json({ kabupaten: kabs, opd: opds });
-        }
-
-        // ---------------------------------------------------------
-        // ACTION: GET_SOAL
-        // ---------------------------------------------------------
+        // === ACTION: GET SOAL (Filter berdasarkan OPD) ===
         else if (action === 'get_soal') {
             const { kabupaten, opd } = req.query;
-            if (!kabupaten || !opd) return res.status(400).json({ error: 'Data tidak lengkap' });
+            if(!kabupaten || !opd) return res.status(400).json({ error: "Parameter kurang" });
 
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
-                range: 'master_pertanyaan!A2:L', 
+                range: 'master_pertanyaan!A2:L',
             });
 
             const rows = response.data.values || [];
-            const filteredRows = rows.filter(row => {
-                const rowKab = (row[1] || '').trim().toLowerCase();
-                const rowOpd = (row[2] || '').trim().toLowerCase();
-                return rowKab === kabupaten.toLowerCase() && rowOpd === opd.toLowerCase();
+            // Filter: Kolom B (Index 1) = Kab, Kolom C (Index 2) = OPD
+            const filtered = rows.filter(r => {
+                const rKab = (r[1] || '').toLowerCase().trim();
+                const rOpd = (r[2] || '').toLowerCase().trim();
+                return rKab === kabupaten.toLowerCase() && rOpd === opd.toLowerCase();
             });
 
-            const questions = filteredRows.map(row => {
-                const rawBukti = row[6] || ''; 
-                const listBukti = rawBukti.split(/\r?\n/).filter(t => t.trim().length > 0);
-                return {
-                    id: row[3],
-                    pertanyaan: row[4],
-                    tipe: row[5],
-                    bukti_dukung: listBukti,
-                    butuh_file: (row[8] === 'Ya' || row[8] === 'TRUE'),
-                    judul_section: row[10] || '',
-                    sub_judul: row[11] || ''
-                };
-            });
+            const result = filtered.map(r => ({
+                id: r[3],
+                pertanyaan: r[4],
+                tipe: r[5],
+                bukti_dukung: (r[6] || '').split(/\r?\n/).filter(x => x.trim()),
+                butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),
+                judul_section: r[10] || '',
+                sub_judul: r[11] || ''
+            }));
 
-            return res.status(200).json({ success: true, data: questions });
+            return res.status(200).json({ success: true, data: result });
         }
 
-        // ---------------------------------------------------------
-        // ACTION: SUBMIT (SIMPAN JAWABAN + UPLOAD FILE)
-        // ---------------------------------------------------------
+        // === ACTION: SUBMIT ===
         else if (action === 'submit') {
             const body = req.body ? JSON.parse(req.body) : {};
             const { kabupaten, opd, data_jawaban } = body;
 
             if (!data_jawaban || !Array.isArray(data_jawaban)) {
-                return res.status(400).json({ error: 'Format data jawaban salah' });
+                return res.status(400).json({ error: 'Data jawaban invalid' });
             }
 
-            const rowsToAppend = [];
-
-            // Loop setiap jawaban dari frontend
+            const rowsToSave = [];
             for (const item of data_jawaban) {
-                // 1. Handle File Upload jika ada
-                let fileLinks = [];
+                let linkFiles = [];
+                // Upload file jika ada
                 if (item.files && item.files.length > 0) {
-                    for (const file of item.files) {
-                        const link = await uploadToDrive(file, driveFolderId);
-                        fileLinks.push(link);
+                    for (const f of item.files) {
+                        const link = await uploadToDrive(f, driveFolderId);
+                        linkFiles.push(link);
                     }
                 }
 
-                // 2. Siapkan Baris Data untuk Excel
-                // Urutan Kolom di Sheet 'database':
-                // A: Waktu, B: Kabupaten, C: OPD, D: ID Soal, E: Pertanyaan, F: Jawaban, G: Penjelasan, H: Alasan, I: Link File
-                rowsToAppend.push([
-                    new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }), // Timestamp
+                rowsToSave.push([
+                    new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
                     kabupaten,
                     opd,
                     item.id_pertanyaan,
@@ -187,31 +183,25 @@ module.exports = async (req, res) => {
                     item.jawaban,
                     item.penjelasan,
                     item.alasan,
-                    fileLinks.join(',\n') // Gabung link file dengan enter jika ada banyak
+                    linkFiles.join(',\n')
                 ]);
             }
 
-            // 3. Simpan ke Google Sheets (Batch Append)
-            if (rowsToAppend.length > 0) {
+            if (rowsToSave.length > 0) {
                 await sheets.spreadsheets.values.append({
                     spreadsheetId,
-                    range: 'database!A2', // Mulai append dari baris kosong setelah header
+                    range: 'database!A2',
                     valueInputOption: 'USER_ENTERED',
-                    requestBody: {
-                        values: rowsToAppend
-                    }
+                    requestBody: { values: rowsToSave }
                 });
             }
-
-            return res.status(200).json({ success: true, message: 'Data berhasil disimpan' });
-        }
-        
-        else {
-            res.status(400).json({ error: 'Action tidak valid' });
+            return res.status(200).json({ success: true });
         }
 
-    } catch (error) {
-        console.error("API Error Details:", error);
-        res.status(500).json({ error: error.message });
+        return res.status(400).json({ error: "Action tidak dikenal" });
+
+    } catch (e) {
+        console.error("API RUNTIME ERROR:", e);
+        return res.status(500).json({ error: e.message });
     }
 };
