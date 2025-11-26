@@ -4,6 +4,7 @@ const { google } = require('googleapis');
 let authClient;
 try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+    // Fix: Mengatasi masalah spasi/baris baru pada Private Key di Vercel
     const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
     if (clientEmail && privateKey) {
@@ -20,7 +21,7 @@ const sheets = google.sheets({ version: 'v4', auth: authClient });
 const spreadsheetId = process.env.SPREADSHEET_ID;
 const driveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// --- 2. HELPER UPLOAD ---
+// --- 2. HELPER UPLOAD KE DRIVE ---
 async function uploadToDrive(fileData, folderId) {
     try {
         if (!authClient) throw new Error("Auth belum siap");
@@ -40,12 +41,14 @@ async function uploadToDrive(fileData, folderId) {
         });
         return response.data.webViewLink;
     } catch (error) {
+        console.error("Gagal Upload:", error);
         return "Gagal Upload";
     }
 }
 
 // --- 3. MAIN API HANDLER ---
 module.exports = async (req, res) => {
+    // Setup Headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -55,15 +58,17 @@ module.exports = async (req, res) => {
     const { action } = req.query;
 
     try {
-        if (!authClient) return res.status(500).json({ error: "Auth Gagal." });
+        if (!authClient) return res.status(500).json({ error: "Auth Gagal. Cek Environment Variables." });
         await authClient.authorize();
 
-        // === ACTION: GET DATA (Dropdown Login) ===
+        // =========================================================
+        // ACTION 1: GET DATA (Untuk Dropdown Login)
+        // Sumber: Tab 'auth' Kolom A (Kabupaten) & B (OPD)
+        // =========================================================
         if (action === 'get_data') {
-            // AUTH: Kolom A=Kabupaten, Kolom B=OPD
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
-                range: 'auth!A2:C', 
+                range: 'auth!A2:B', 
             });
             const rows = response.data.values || [];
             
@@ -76,19 +81,24 @@ module.exports = async (req, res) => {
             });
         }
 
-        // === ACTION: LOGIN ===
+        // =========================================================
+        // ACTION 2: LOGIN
+        // Sumber: Tab 'auth' Kolom A (User), B (OPD), C (Password)
+        // =========================================================
         else if (action === 'login') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { username, password } = body;
+            const { username, password } = body; 
 
-            // AUTH: A=User, B=OPD, C=Pass
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'auth!A2:C', 
             });
             const rows = response.data.values || [];
             
-            const user = rows.find(r => r[0] == username && r[2] == password);
+            const user = rows.find(r => 
+                (r[0]||'').toLowerCase().trim() === username.toLowerCase().trim() && 
+                (r[2]||'').toString().trim() === password.toString().trim()
+            );
 
             if (user) {
                 return res.status(200).json({ success: true, kabupaten: user[0], opd: user[1] });
@@ -96,52 +106,50 @@ module.exports = async (req, res) => {
             return res.status(401).json({ success: false });
         }
 
-        // === ACTION: GET SOAL (DISINI KITA TELITI STRUKTURNYA) ===
+        // =========================================================
+        // ACTION 3: GET SOAL
+        // Sumber: Tab 'master_pertanyaan'
+        // =========================================================
         else if (action === 'get_soal') {
             const { kabupaten, opd } = req.query;
             
-            // Mengambil seluruh kolom A sampai L
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'master_pertanyaan!A2:L',
             });
             const rows = response.data.values || [];
             
-            // --- FILTERING ---
-            // Kode ini berasumsi Struktur:
-            // Kolom A (Index 0) = Nomor
-            // Kolom B (Index 1) = Kabupaten  <-- FILTER
-            // Kolom C (Index 2) = OPD        <-- FILTER
-            
             const result = rows
                 .filter(r => {
-                    // Pastikan Kolom tidak kosong & cocok dengan login
                     const rowKab = (r[1] || '').trim().toLowerCase();
                     const rowOpd = (r[2] || '').trim().toLowerCase();
-                    
-                    // Filter: Harus cocok persis
                     return rowKab === kabupaten.trim().toLowerCase() && 
                            rowOpd === opd.trim().toLowerCase();
                 })
                 .map(r => ({
-                    // MAPPING DATA KE FRONTEND
-                    id: r[3],             // Kolom D = ID
-                    pertanyaan: r[4],     // Kolom E = Pertanyaan
-                    tipe: r[5],           // Kolom F = Tipe Jawaban
-                    bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean), // Kolom G
-                    butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),            // Kolom I
-                    judul_section: r[10] || '', // Kolom K
-                    sub_judul: r[11] || ''      // Kolom L
+                    id: r[3],
+                    pertanyaan: r[4],
+                    tipe: r[5],
+                    bukti_dukung: (r[6] || '').split(/\r?\n/).filter(Boolean),
+                    butuh_file: (r[8] === 'Ya' || r[8] === 'TRUE'),
+                    judul_section: r[10] || '',
+                    sub_judul: r[11] || ''
                 }));
 
             return res.status(200).json({ success: true, data: result });
         }
 
-        // === ACTION: SUBMIT ===
+        // =========================================================
+        // ACTION 4: SUBMIT
+        // Tujuan: Tab 'database' (Ada ID Transaksi di Kolom A)
+        // =========================================================
         else if (action === 'submit') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kabupaten, opd, data_jawaban } = body;
             const rowsToSave = [];
+
+            // Generate ID Transaksi Unik (Misal: TRX-AngkaAcak)
+            const idTransaksi = 'TRX-' + Date.now() + Math.floor(Math.random() * 1000);
 
             if (data_jawaban && Array.isArray(data_jawaban)) {
                 for (const item of data_jawaban) {
@@ -152,23 +160,35 @@ module.exports = async (req, res) => {
                             linkFiles.push(link);
                         }
                     }
+                    
+                    // URUTAN SIMPAN BARU (Ada id_transaksi di depan):
                     rowsToSave.push([
-                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
-                        kabupaten, opd, item.id_pertanyaan, item.pertanyaan,
-                        item.jawaban, item.penjelasan, item.alasan, linkFiles.join(',\n')
+                        idTransaksi, // Kolom A
+                        new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }), // Kolom B (Waktu)
+                        kabupaten, 
+                        opd, 
+                        item.id_pertanyaan, 
+                        item.pertanyaan,
+                        item.jawaban, 
+                        item.penjelasan, 
+                        item.alasan, 
+                        linkFiles.join(',\n')
                     ]);
                 }
+                
                 if (rowsToSave.length > 0) {
                     await sheets.spreadsheets.values.append({
-                        spreadsheetId, range: 'database!A2',
-                        valueInputOption: 'USER_ENTERED', requestBody: { values: rowsToSave }
+                        spreadsheetId, 
+                        range: 'database!A2',
+                        valueInputOption: 'USER_ENTERED', 
+                        requestBody: { values: rowsToSave }
                     });
                 }
             }
             return res.status(200).json({ success: true });
         }
 
-        return res.status(400).json({ error: "Action Unknown" });
+        return res.status(400).json({ error: "Action tidak dikenal" });
 
     } catch (e) {
         console.error("API Error:", e);
